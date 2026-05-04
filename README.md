@@ -4,7 +4,7 @@ O **App Meninas Digitais** é uma aplicação multiplataforma desenvolvida com F
 
 ## 🌐 Demonstração Online
 O projeto está publicado e pode ser acessado via navegador através do link abaixo:
-👉 **[https://midvirus.github.io/app-meninas-digitais/](https://midvirus.github.io/app-meninas-digitais/)**
+👉 **[https://midvirus.github.io/app-meninas-digitais/](https://midvirus.github.io/App-Meninas-Digitais/)**
 
 ---
 
