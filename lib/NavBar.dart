@@ -7,8 +7,8 @@ class NavBar {
         padding: EdgeInsets.zero,
         children: [
           const UserAccountsDrawerHeader(
-            accountName: Text('Meninas Digitais User'),
-            accountEmail: Text('user@meninasdigitais.com'),
+            accountName: Text('Usuário Meninas Digitais'),
+            accountEmail: Text('usuario@meninasdigitais.com'),
             currentAccountPicture: CircleAvatar(
               backgroundColor: Colors.white,
               child: Icon(Icons.person, color: Colors.deepPurple),
@@ -19,7 +19,7 @@ class NavBar {
           ),
           ListTile(
             leading: const Icon(Icons.home),
-            title: const Text('Home'),
+            title: const Text('Início'),
             onTap: () {
               Navigator.pop(context);
               Navigator.pushNamed(context, '/home');
@@ -27,7 +27,7 @@ class NavBar {
           ),
           ListTile(
             leading: const Icon(Icons.person),
-            title: const Text('Login'),
+            title: const Text('Entrar'),
             onTap: () {
               Navigator.pop(context);
               Navigator.pushNamed(context, '/login');
@@ -35,7 +35,7 @@ class NavBar {
           ),
           ListTile(
             leading: const Icon(Icons.push_pin),
-            title: const Text('Pinboard'),
+            title: const Text('Mural'),
             onTap: () {
               Navigator.pop(context);
               Navigator.pushNamed(context, '/pinboard');

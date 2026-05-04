@@ -15,7 +15,7 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Login'),
+        title: const Text('Entrar'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -44,10 +44,10 @@ class _LoginPageState extends State<LoginPage> {
               onPressed: () {
                 
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Login button pressed')),
+                  const SnackBar(content: Text('Botão de login pressionado')),
                 );
               },
-              child: const Text('Login'),
+              child: const Text('Entrar'),
             ),
           ],
         ),

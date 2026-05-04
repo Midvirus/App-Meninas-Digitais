@@ -207,7 +207,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       children: [
                         _buildSocialIcon(
                           Icons.language, 
-                          'Website',
+                          'Site',
                           onTap: () => _launchURL('https://meninas.sbc.org.br/projetos-parceiros/meninas-digitais-utfpr-cp/')
                         ),
                         _buildSocialIcon(

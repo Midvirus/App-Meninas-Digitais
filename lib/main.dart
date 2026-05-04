@@ -10,7 +10,7 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
+  // Este widget é a raiz da sua aplicação.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -22,7 +22,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/login': (context) => const LoginPage(),
         '/home': (context) => const MyHomePage(title: 'Meninas Digitais'),
-        '/pinboard': (context) => const PinboardPage(title: 'Pinboard'),
+        '/pinboard': (context) => const PinboardPage(title: 'Mural'),
       },
     );
   }
