@@ -41,6 +41,14 @@ class NavBar {
               Navigator.pushNamed(context, '/pinboard');
             },
           ),
+          ListTile(
+            leading: const Icon(Icons.quiz),
+            title: const Text('Desafios'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, '/challenges');
+            },
+          ),
         ],
       ),
     );

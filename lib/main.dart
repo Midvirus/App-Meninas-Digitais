@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'loginPage.dart';
 import 'homePage.dart';
 import 'pinboard.dart';
+import 'challenges.dart';
 
 void main() {
   runApp(const MyApp());
@@ -23,6 +24,7 @@ class MyApp extends StatelessWidget {
         '/login': (context) => const LoginPage(),
         '/home': (context) => const MyHomePage(title: 'Meninas Digitais'),
         '/pinboard': (context) => const PinboardPage(title: 'Mural'),
+        '/challenges': (context) => const ChallengesPage(title: 'Desafios'),
       },
     );
   }
