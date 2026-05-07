@@ -112,7 +112,8 @@ class _PinboardPageState extends State<PinboardPage> {
       builder: (context) => _AddPinDialog(
         onAdd: (title, description, user, category, date, color, tutor) {
           setState(() {
-            pins.add(
+            pins.insert(
+              0,
               Pin(
                 id: DateTime.now().toString(),
                 title: title,
@@ -440,18 +441,30 @@ class _PinDetailsDialogState extends State<_PinDetailsDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 500),
+        constraints: const BoxConstraints(maxWidth: 500, maxHeight: 500,),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Header with pin details
+            // ==========================
+            // HEADER COLORIDO
+            // ==========================
             Container(
-              color: widget.pin.color.withAlpha(200),
+              decoration: BoxDecoration(
+                color: widget.pin.color.withAlpha(200),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
+                ),
+              ),
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Título + categoria + botão fechar
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -491,14 +504,6 @@ class _PinDetailsDialogState extends State<_PinDetailsDialog> {
                         onPressed: () => Navigator.pop(context),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    widget.pin.description,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.white,
-                    ),
                   ),
                   const SizedBox(height: 12),
                   if (widget.pin.tutor != null)
@@ -550,120 +555,47 @@ class _PinDetailsDialogState extends State<_PinDetailsDialog> {
                 ],
               ),
             ),
-            // Engagement metrics
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: widget.onLike,
-                    icon: const Icon(Icons.favorite_outline),
-                    label: Text('${widget.pin.likes}'),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Row(
-                      children: [
-                        const Icon(Icons.comment_outlined),
-                        const SizedBox(width: 8),
-                        Text('${widget.pin.comments.length} comentários'),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            // Seção de comentários
             Expanded(
-              child: SingleChildScrollView(
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.only(
+                    bottomLeft: Radius.circular(12),
+                    bottomRight: Radius.circular(12),
+                  ),
+                ),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (widget.pin.comments.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.all(16),
+                    // Título da seção (opcional)
+                    const Text(
+                      'Descrição',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Área rolável para o texto da descrição
+                    Expanded(
+                      child: SingleChildScrollView(
+                        // scrollbar invisível (apenas gesto de scroll)
                         child: Text(
-                          'Sem comentários ainda. Seja o primeiro!',
-                          style: TextStyle(
+                          widget.pin.description,
+                          style: const TextStyle(
                             fontSize: 14,
-                            color: Colors.grey[600],
-                            fontStyle: FontStyle.italic,
+                            color: Colors.black87,
                           ),
                         ),
-                      )
-                    else
-                      ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: widget.pin.comments.length,
-                        itemBuilder: (context, index) {
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Usuário ${index + 1}',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  widget.pin.comments[index],
-                                  style: const TextStyle(fontSize: 13),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
                       ),
+                    ),
                   ],
                 ),
               ),
-            ),
-            const Divider(height: 1),
-            // Add comment section
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: commentController,
-                      decoration: InputDecoration(
-                        hintText: 'Adicione um comentário...',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                      ),
-                      maxLines: 1,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.send),
-                    color: Colors.blue,
-                    onPressed: () {
-                      if (commentController.text.isNotEmpty) {
-                        widget.onAddComment(commentController.text);
-                        commentController.clear();
-                        setState(() {});
-                      }
-                    },
-                  ),
-                ],
-              ),
-            ),
+            ),  
           ],
         ),
       ),
@@ -738,6 +670,7 @@ class _AddPinDialogState extends State<_AddPinDialog> {
     }
   }
 
+  // Adicionar POST
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
