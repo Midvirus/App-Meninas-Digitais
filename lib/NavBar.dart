@@ -49,6 +49,14 @@ class NavBar {
               Navigator.pushNamed(context, '/challenges');
             },
           ),
+          ListTile(
+            leading: const Icon(Icons.group),
+            title: const Text('Usuários'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, '/users');
+            },
+          ),
         ],
       ),
     );

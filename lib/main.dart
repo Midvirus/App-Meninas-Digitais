@@ -3,6 +3,7 @@ import 'loginPage.dart';
 import 'homePage.dart';
 import 'pinboard.dart';
 import 'challenges.dart';
+import 'users.dart';
 
 void main() {
   runApp(const MyApp());
@@ -25,6 +26,7 @@ class MyApp extends StatelessWidget {
         '/home': (context) => const MyHomePage(title: 'Meninas Digitais'),
         '/pinboard': (context) => const PinboardPage(title: 'Mural'),
         '/challenges': (context) => const ChallengesPage(title: 'Desafios'),
+        '/users': (context) => const UsersPage(title: 'Usuários'),
       },
     );
   }
