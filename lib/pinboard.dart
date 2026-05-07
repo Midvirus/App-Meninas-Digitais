@@ -445,8 +445,11 @@ class _PinDetailsDialogState extends State<_PinDetailsDialog> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 500, maxHeight: 500,),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.8,
+        ),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
             // ==========================
@@ -602,9 +605,7 @@ class _PinDetailsDialogState extends State<_PinDetailsDialog> {
     );
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
-  }
+
 }
 
 class _AddPinDialog extends StatefulWidget {
