@@ -230,155 +230,166 @@ class _PinCard extends StatelessWidget {
         color: pin.color.withAlpha(200),
         child: InkWell(
           onTap: onTap,
-          child: Stack(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
+          child: Padding(
+            padding: const EdgeInsets.all(12), // um pouco mais compacto
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // LINHA 1: TÍTULO
+                Text(
+                  pin.title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+
+                const SizedBox(height: 10),
+
+                // LINHA 2: DUAS COLUNAS
+                Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                pin.title,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              if (pin.tutor != null)
-                                Container(
-                                  margin: const EdgeInsets.only(top: 4),
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white24,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    'Orientador: ${pin.tutor}',
-                                    style: const TextStyle(
-                                      fontSize: 9,
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
+                    // ==========================
+                    // COLUNA ESQUERDA
+                    // Tutor, autor, likes
+                    // ==========================
+                    Expanded(
+                      flex: 3,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (pin.tutor != null) ...[
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.white24,
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
-                                pin.category,
+                                'Tutor: ${pin.tutor}',
                                 style: const TextStyle(
-                                  fontSize: 10,
+                                  fontSize: 9,
                                   color: Colors.white,
+                                  fontWeight: FontWeight.bold,
                                 ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
+                            const SizedBox(height: 6),
                           ],
-                        ),
-                      ],
-                    ),
-                    Text(
-                      pin.description,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Colors.white70,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
+
+                          // Autor
+                          Text(
                             'Por ${pin.user}',
                             style: const TextStyle(
                               fontSize: 10,
                               color: Colors.white60,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                        Text(
-                          _formatDate(pin.date),
-                          style: const TextStyle(
-                            fontSize: 10,
-                            color: Colors.white60,
-                          ),
-                        ),
-                      ],
-                    ),
-                    // Instagram-style engagement metrics
-                    Row(
-                      children: [
-                        GestureDetector(
-                          onTap: onLike,
-                          child: Row(
-                            children: [
-                              Icon(Icons.favorite_outline, size: 14, color: Colors.white70),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${pin.likes}',
-                                style: const TextStyle(
-                                  fontSize: 10,
+
+                          const SizedBox(height: 6),
+
+                          // Likes
+                          GestureDetector(
+                            onTap: onLike,
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.favorite_outline,
+                                  size: 14,
                                   color: Colors.white70,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${pin.likes}',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 16),
-                        Row(
-                          children: [
-                            Icon(Icons.comment_outlined, size: 14, color: Colors.white70),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${pin.comments.length}',
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(width: 4),
+
+                    // ==========================
+                    // COLUNA DIREITA
+                    // Linha 1: botão delete
+                    // Linha 2: categoria
+                    // Linha 3: data
+                    // ==========================
+                    Expanded(
+                      flex: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+
+                          // Linha 2: categoria
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white24,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              pin.category,
                               style: const TextStyle(
                                 fontSize: 10,
-                                color: Colors.white70,
+                                color: Colors.white,
                               ),
                             ),
-                          ],
-                        ),
-                      ],
+                          ),
+
+                          const SizedBox(height: 6),
+
+                          // Linha 3: data
+                          Text(
+                            _formatDate(pin.date),
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Colors.white60,
+                            ),
+                          ),
+                                                    // Linha 1: botão apagar (no topo)
+                          InkWell(
+                            onTap: onDelete,
+                            borderRadius: BorderRadius.circular(999),
+                            child: const Padding(
+                              padding: EdgeInsets.all(2), // controle fino da área de toque
+                              child: Icon(
+                                Icons.delete,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
-              ),
-              Positioned(
-                top: 8,
-                right: 8,
-                child: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white),
-                  iconSize: 18,
-                  onPressed: onDelete,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -389,6 +400,10 @@ class _PinCard extends StatelessWidget {
     return '${date.day}/${date.month}/${date.year}';
   }
 }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
+  }
 
 class _PinDetailsDialog extends StatefulWidget {
   final Pin pin;
@@ -420,6 +435,8 @@ class _PinDetailsDialogState extends State<_PinDetailsDialog> {
     super.dispose();
   }
 
+
+// Diálogo detalhado
   @override
   Widget build(BuildContext context) {
     return Dialog(
