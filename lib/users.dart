@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:postgrest/postgrest.dart';
 import 'NavBar.dart';
+import 'supabase_client.dart';
 
 class UserProfile {
   final String id;
@@ -39,6 +41,32 @@ class UserProfile {
       createdAt: createdAt ?? this.createdAt,
     );
   }
+
+  factory UserProfile.fromJson(Map<String, dynamic> json) {
+    return UserProfile(
+      id: json['id'] as String,
+      name: json['name'] as String? ?? '',
+      email: json['email'] as String? ?? '',
+      category: json['category'] as String?,
+      role: json['role'] as String? ?? 'Tutoranda',
+      tutor: json['tutor'] as String?,
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'] as String)
+          : DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'email': email,
+      'category': category,
+      'role': role,
+      'tutor': tutor,
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
 }
 
 class UsersPage extends StatefulWidget {
@@ -50,36 +78,9 @@ class UsersPage extends StatefulWidget {
 }
 
 class _UsersPageState extends State<UsersPage> {
-  late List<UserProfile> users = [
-    UserProfile(
-      id: '1',
-      name: 'Ana Silva',
-      email: 'ana.silva@meninasdigitais.com',
-      category: null,
-      role: 'Tutoranda',
-      tutor: 'Prof. Marina Costa',
-      createdAt: DateTime.now(),
-    ),
-    UserProfile(
-      id: '2',
-      name: 'Bárbara Souza',
-      email: 'barbara.souza@meninasdigitais.com',
-      category: 'Programação',
-      role: 'Tutor',
-      tutor: null,
-      createdAt: DateTime.now(),
-    ),
-    UserProfile(
-      id: '3',
-      name: 'Carla Lima',
-      email: 'carla.lima@meninasdigitais.com',
-      category: null,
-      role: 'Tutoranda',
-      tutor: 'Prof. Juliana Ramos',
-      createdAt: DateTime.now(),
-    ),
-  ];
-
+  List<UserProfile> users = [];
+  bool _isLoadingUsers = true;
+  String? _userError;
   String searchQuery = '';
   late TextEditingController searchController;
   String selectedClassFilter = 'Todos';
@@ -89,12 +90,61 @@ class _UsersPageState extends State<UsersPage> {
   void initState() {
     super.initState();
     searchController = TextEditingController();
+    _loadUsers();
   }
 
   @override
   void dispose() {
     searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadUsers() async {
+    setState(() {
+      _isLoadingUsers = true;
+      _userError = null;
+    });
+
+    try {
+      final rawUsers = await supabase.from('users').select().order('created_at', ascending: false);
+      if (!mounted) return;
+      setState(() {
+        users = (rawUsers as List<dynamic>)
+            .map((item) => UserProfile.fromJson(item as Map<String, dynamic>))
+            .toList();
+        _isLoadingUsers = false;
+      });
+    } on PostgrestException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _userError = error.message;
+        _isLoadingUsers = false;
+      });
+    }
+  }
+
+  Future<void> _saveUser(UserProfile user) async {
+    try {
+      await supabase.from('users').insert(user.toJson());
+      await _loadUsers();
+    } on PostgrestException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao salvar usuário: ${error.message}')),
+      );
+    }
+  }
+
+  Future<void> _updateUser(UserProfile user) async {
+    try {
+      await supabase.from('users').update(user.toJson()).eq('id', user.id);
+      await _loadUsers();
+    } on PostgrestException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao atualizar usuário: ${error.message}')),
+      );
+    }
   }
 
   List<UserProfile> get filteredUsers {
@@ -115,10 +165,8 @@ class _UsersPageState extends State<UsersPage> {
       context: context,
       builder: (context) => _AddEditUserDialog(
         title: 'Adicionar Pessoa',
-        onSubmit: (newUser) {
-          setState(() {
-            users.insert(0, newUser);
-          });
+        onSubmit: (newUser) async {
+          await _saveUser(newUser);
         },
       ),
     );
@@ -129,10 +177,8 @@ class _UsersPageState extends State<UsersPage> {
       context: context,
       builder: (context) => _UserDetailsDialog(
         user: users[index],
-        onUpdate: (updatedUser) {
-          setState(() {
-            users[index] = updatedUser;
-          });
+        onUpdate: (updatedUser) async {
+          await _updateUser(updatedUser);
         },
       ),
     );
@@ -213,73 +259,87 @@ class _UsersPageState extends State<UsersPage> {
             ),
           ),
           Expanded(
-            child: filteredUsers.isEmpty
-                ? Center(
-                    child: Text(
-                      users.isEmpty
-                          ? 'Nenhum usuário cadastrado.'
-                          : 'Nenhum usuário encontrado.',
-                      style: const TextStyle(fontSize: 16, color: Colors.grey),
-                    ),
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: filteredUsers.length,
-                    separatorBuilder: (context, index) =>
-                        const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      final user = filteredUsers[index];
-                      return Card(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+            child: _isLoadingUsers
+                ? const Center(child: CircularProgressIndicator())
+                : _userError != null
+                    ? Center(
+                        child: Text(
+                          'Erro ao carregar usuários: $_userError',
+                          style: const TextStyle(fontSize: 16, color: Colors.red),
+                          textAlign: TextAlign.center,
                         ),
-                        elevation: 2,
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          title: Text(
-                            user.name,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const SizedBox(height: 4),
-                              Text(user.email),
-                              const SizedBox(height: 4),
-                              Text(
-                                user.category != null
-                                    ? '${user.role} • ${user.category}'
-                                    : user.role,
-                              ),
-                            ],
-                          ),
-                          trailing: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.primary.withAlpha(31),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
+                      )
+                    : filteredUsers.isEmpty
+                        ? Center(
                             child: Text(
-                              user.role,
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.primary,
-                                fontWeight: FontWeight.bold,
-                              ),
+                              users.isEmpty
+                                  ? 'Nenhum usuário cadastrado.'
+                                  : 'Nenhum usuário encontrado.',
+                              style: const TextStyle(
+                                  fontSize: 16, color: Colors.grey),
                             ),
+                          )
+                        : ListView.separated(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: filteredUsers.length,
+                            separatorBuilder: (context, index) =>
+                                const SizedBox(height: 12),
+                            itemBuilder: (context, index) {
+                              final user = filteredUsers[index];
+                              return Card(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 2,
+                                child: ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
+                                  title: Text(
+                                    user.name,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                  subtitle: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const SizedBox(height: 4),
+                                      Text(user.email),
+                                      const SizedBox(height: 4),
+                                      Text(user.category != null
+                                          ? '${user.role} • ${user.category}'
+                                          : user.role),
+                                    ],
+                                  ),
+                                  trailing: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .primary
+                                          .withAlpha(31),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      user.role,
+                                      style: TextStyle(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .primary,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  onTap: () => _showUserDetails(index),
+                                ),
+                              );
+                            },
                           ),
-                          onTap: () => _showUserDetails(index),
-                        ),
-                      );
-                    },
-                  ),
           ),
         ],
       ),

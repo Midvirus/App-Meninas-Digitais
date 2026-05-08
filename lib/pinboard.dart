@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:postgrest/postgrest.dart';
 import 'NavBar.dart';
+import 'supabase_client.dart';
 
 class Pin {
   final String id;
@@ -27,6 +29,45 @@ class Pin {
     this.likes = 0,
     List<String>? comments,
   }) : comments = comments ?? [];
+
+  factory Pin.fromJson(Map<String, dynamic> json) {
+    DateTime parseDate(dynamic value) {
+      if (value is DateTime) return value;
+      if (value is String) return DateTime.parse(value);
+      if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+      return DateTime.now();
+    }
+
+    return Pin(
+      id: json['id'] as String,
+      title: json['title'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      user: json['user'] as String? ?? '',
+      category: json['category'] as String? ?? 'Geral',
+      date: parseDate(json['date']),
+      color: Color(json['color'] as int? ?? Colors.blue.toARGB32()),
+      tutor: json['tutor'] as String?,
+      createdAt: parseDate(json['created_at']),
+      likes: json['likes'] as int? ?? 0,
+      comments: List<String>.from(json['comments'] ?? []),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'description': description,
+      'user': user,
+      'category': category,
+      'date': date.toIso8601String(),
+      'color': color.toARGB32(),
+      'tutor': tutor,
+      'created_at': createdAt.toIso8601String(),
+      'likes': likes,
+      'comments': comments,
+    };
+  }
 }
 
 class PinboardPage extends StatefulWidget {
@@ -38,106 +79,99 @@ class PinboardPage extends StatefulWidget {
 }
 
 class _PinboardPageState extends State<PinboardPage> {
-  late List<Pin> pins = [
-    Pin(
-      id: '1',
-      title: 'Desafio de Web Design',
-      description: 'Crie um layout de site responsivo',
-      user: 'Emma Johnson',
-      category: 'Desafio',
-      date: DateTime(2026, 4, 25),
-      color: Colors.blue,
-      tutor: 'Prof. David Miller',
-      createdAt: DateTime.now(),
-      likes: 24,
-      comments: ['Ótimo desafio!', 'Animado para participar', 'Isso fica incrível', 'Quando começa?'],
-    ),
-    Pin(
-      id: '2',
-      title: 'Sessão de Revisão de Código',
-      description: 'Revisão e feedback em projetos',
-      user: 'Lisa Martinez',
-      category: 'Reunião',
-      date: DateTime(2026, 4, 18),
-      color: Colors.green,
-      tutor: 'Dr. Elena Rodriguez',
-      createdAt: DateTime.now(),
-      likes: 18,
-      comments: ['Muito útil', 'Aprendi muito', 'Obrigado pelo feedback'],
-    ),
-    Pin(
-      id: '3',
-      title: 'Workshop do Flutter',
-      description: 'Introdução ao desenvolvimento móvel',
-      user: 'Sophie Chen',
-      category: 'Workshop',
-      date: DateTime(2026, 5, 10),
-      color: Colors.purple,
-      tutor: null,
-      createdAt: DateTime.now(),
-      likes: 32,
-      comments: ['Mal posso esperar!', 'É gratuito?', 'Flutter é incrível', 'Me inscreva!', 'Haverá lanches?'],
-    ),
-    Pin(
-      id: '4',
-      title: 'Hackathon 2026',
-      description: 'Crie apps incríveis em 48 horas',
-      user: 'Rachel Brown',
-      category: 'Evento',
-      date: DateTime(2026, 6, 15),
-      color: Colors.red,
-      tutor: 'Prof. James Anderson',
-      createdAt: DateTime.now(),
-      likes: 45,
-      comments: ['Isso será épico!', 'Formando um time', 'Qual é o prêmio?', 'Pode contar comigo!'],
-    ),
-    Pin(
-      id: '5',
-      title: 'Conceitos Básicos de Python',
-      description: 'Aprenda fundamentos de programação',
-      user: 'Jessica Lee',
-      category: 'Curso',
-      date: DateTime(2026, 4, 28),
-      color: Colors.orange,
-      tutor: null,
-      createdAt: DateTime.now(),
-      likes: 15,
-      comments: ['Perfeito para iniciantes', 'Ótima introdução', 'Link do curso?'],
-    ),
-  ];
+  List<Pin> pins = [];
+  bool _isLoadingPins = true;
+  String? _pinError;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPins();
+  }
+
+  Future<void> _loadPins() async {
+    setState(() {
+      _isLoadingPins = true;
+      _pinError = null;
+    });
+
+    try {
+      final rawPins = await supabase.from('pins').select().order('created_at', ascending: false);
+      if (!mounted) return;
+      setState(() {
+        pins = (rawPins as List<dynamic>)
+            .map((item) => Pin.fromJson(item as Map<String, dynamic>))
+            .toList();
+        _isLoadingPins = false;
+      });
+    } on PostgrestException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _pinError = error.message;
+        _isLoadingPins = false;
+      });
+    }
+  }
+
+  Future<void> _savePin(Pin pin) async {
+    try {
+      await supabase.from('pins').insert(pin.toJson());
+      await _loadPins();
+    } on PostgrestException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao salvar post: ${error.message}')),
+      );
+    }
+  }
+
+  Future<void> _updatePin(Pin pin) async {
+    try {
+      await supabase.from('pins').update(pin.toJson()).eq('id', pin.id);
+      await _loadPins();
+    } on PostgrestException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao atualizar post: ${error.message}')),
+      );
+    }
+  }
+
+  Future<void> _deletePin(String id) async {
+    try {
+      await supabase.from('pins').delete().eq('id', id);
+      await _loadPins();
+    } on PostgrestException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao excluir post: ${error.message}')),
+      );
+    }
+  }
 
   void _addPin() {
     showDialog(
       context: context,
       builder: (context) => _AddPinDialog(
-        onAdd: (title, description, user, category, date, color, tutor) {
-          setState(() {
-            pins.insert(
-              0,
-              Pin(
-                id: DateTime.now().toString(),
-                title: title,
-                description: description,
-                user: user,
-                category: category,
-                date: date,
-                color: color,
-                tutor: tutor,
-                createdAt: DateTime.now(),
-                likes: 0,
-                comments: [],
-              ),
-            );
-          });
+        onAdd: (title, description, user, category, date, color, tutor) async {
+          await _savePin(
+            Pin(
+              id: DateTime.now().toString(),
+              title: title,
+              description: description,
+              user: user,
+              category: category,
+              date: date,
+              color: color,
+              tutor: tutor,
+              createdAt: DateTime.now(),
+              likes: 0,
+              comments: [],
+            ),
+          );
         },
       ),
     );
-  }
-
-  void _deletePin(String id) {
-    setState(() {
-      pins.removeWhere((pin) => pin.id == id);
-    });
   }
 
   void _showPinDetails(BuildContext context, int pinIndex) {
@@ -146,14 +180,14 @@ class _PinboardPageState extends State<PinboardPage> {
       builder: (context) => _PinDetailsDialog(
         pin: pins[pinIndex],
         onAddComment: (comment) {
-          setState(() {
-            pins[pinIndex].comments.add(comment);
-          });
+          final updatedPin = pins[pinIndex];
+          updatedPin.comments.add(comment);
+          _updatePin(updatedPin);
         },
         onLike: () {
-          setState(() {
-            pins[pinIndex].likes++;
-          });
+          final updatedPin = pins[pinIndex];
+          updatedPin.likes++;
+          _updatePin(updatedPin);
         },
       ),
     );
@@ -167,40 +201,65 @@ class _PinboardPageState extends State<PinboardPage> {
         title: Text(widget.title),
       ),
       drawer: NavBar.buildDrawer(context),
-      body: pins.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.push_pin_outlined,
-                    size: 64,
-                    color: Colors.grey,
+      body: _isLoadingPins
+          ? const Center(child: CircularProgressIndicator())
+          : _pinError != null
+              ? Center(
+                  child: Text(
+                    'Erro ao carregar posts: $_pinError',
+                    style: const TextStyle(fontSize: 16, color: Colors.red),
+                    textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Nenhum post ainda',
-                    style: TextStyle(fontSize: 18, color: Colors.grey),
-                  ),
-                ],
-              ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: pins.length,
-              itemBuilder: (context, index) {
-                final pin = pins[index];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _PinCard(
-                    pin: pin,
-                    onDelete: () => _deletePin(pin.id),
-                    onTap: () => _showPinDetails(context, index),
-                    onLike: () => setState(() => pins[index].likes++),
-                  ),
-                );
-              },
-            ),
+                )
+              : pins.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.push_pin_outlined,
+                            size: 64,
+                            color: Colors.grey,
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Nenhum post ainda',
+                            style: TextStyle(fontSize: 18, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: pins.length,
+                      itemBuilder: (context, index) {
+                        final pin = pins[index];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _PinCard(
+                            pin: pin,
+                            onDelete: () => _deletePin(pin.id),
+                            onTap: () => _showPinDetails(context, index),
+                            onLike: () {
+                              final updatedPin = Pin(
+                                id: pin.id,
+                                title: pin.title,
+                                description: pin.description,
+                                user: pin.user,
+                                category: pin.category,
+                                date: pin.date,
+                                color: pin.color,
+                                tutor: pin.tutor,
+                                createdAt: pin.createdAt,
+                                likes: pin.likes + 1,
+                                comments: pin.comments,
+                              );
+                              _updatePin(updatedPin);
+                            },
+                          ),
+                        );
+                      },
+                    ),
       floatingActionButton: FloatingActionButton(
         onPressed: _addPin,
         tooltip: 'Adicionar Post',
@@ -593,6 +652,53 @@ class _PinDetailsDialogState extends State<_PinDetailsDialog> {
                             color: Colors.black87,
                           ),
                         ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Comentários',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: widget.pin.comments.isEmpty
+                          ? const Text('Nenhum comentário ainda.',
+                              style: TextStyle(color: Colors.black54))
+                          : ListView.separated(
+                              itemCount: widget.pin.comments.length,
+                              separatorBuilder: (context, index) => const Divider(),
+                              itemBuilder: (context, index) {
+                                return Text(
+                                  '• ${widget.pin.comments[index]}',
+                                  style: const TextStyle(color: Colors.black87),
+                                );
+                              },
+                            ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: commentController,
+                      decoration: const InputDecoration(
+                        labelText: 'Adicionar comentário',
+                        border: OutlineInputBorder(),
+                      ),
+                      maxLines: 1,
+                    ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          final comment = commentController.text.trim();
+                          if (comment.isEmpty) return;
+                          widget.onAddComment(comment);
+                          commentController.clear();
+                        },
+                        child: const Text('Enviar'),
                       ),
                     ),
                   ],
