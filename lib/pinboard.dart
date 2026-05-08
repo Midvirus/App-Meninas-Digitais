@@ -14,7 +14,6 @@ class Pin {
   final String? tutor;
   final DateTime createdAt;
   int likes;
-  final List<String> comments;
 
   Pin({
     required this.id,
@@ -27,8 +26,7 @@ class Pin {
     this.tutor,
     required this.createdAt,
     this.likes = 0,
-    List<String>? comments,
-  }) : comments = comments ?? [];
+  });
 
   factory Pin.fromJson(Map<String, dynamic> json) {
     DateTime parseDate(dynamic value) {
@@ -49,7 +47,6 @@ class Pin {
       tutor: json['tutor'] as String?,
       createdAt: parseDate(json['created_at']),
       likes: json['likes'] as int? ?? 0,
-      comments: List<String>.from(json['comments'] ?? []),
     );
   }
 
@@ -63,9 +60,8 @@ class Pin {
       'date': date.toIso8601String(),
       'color': color.toARGB32(),
       'tutor': tutor,
-      'created_at': createdAt.toIso8601String(),
+      'created_at': createdAt.toUtc().toIso8601String(),
       'likes': likes,
-      'comments': comments,
     };
   }
 }
@@ -166,7 +162,6 @@ class _PinboardPageState extends State<PinboardPage> {
               tutor: tutor,
               createdAt: DateTime.now(),
               likes: 0,
-              comments: [],
             ),
           );
         },
@@ -179,11 +174,6 @@ class _PinboardPageState extends State<PinboardPage> {
       context: context,
       builder: (context) => _PinDetailsDialog(
         pin: pins[pinIndex],
-        onAddComment: (comment) {
-          final updatedPin = pins[pinIndex];
-          updatedPin.comments.add(comment);
-          _updatePin(updatedPin);
-        },
         onLike: () {
           final updatedPin = pins[pinIndex];
           updatedPin.likes++;
@@ -252,7 +242,6 @@ class _PinboardPageState extends State<PinboardPage> {
                                 tutor: pin.tutor,
                                 createdAt: pin.createdAt,
                                 likes: pin.likes + 1,
-                                comments: pin.comments,
                               );
                               _updatePin(updatedPin);
                             },
@@ -461,42 +450,20 @@ class _PinCard extends StatelessWidget {
   }
 }
 
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
-  }
-
-class _PinDetailsDialog extends StatefulWidget {
+class _PinDetailsDialog extends StatelessWidget {
   final Pin pin;
-  final Function(String) onAddComment;
   final VoidCallback onLike;
 
   const _PinDetailsDialog({
     required this.pin,
-    required this.onAddComment,
     required this.onLike,
   });
 
-  @override
-  State<_PinDetailsDialog> createState() => _PinDetailsDialogState();
-}
-
-class _PinDetailsDialogState extends State<_PinDetailsDialog> {
-  late TextEditingController commentController;
-
-  @override
-  void initState() {
-    super.initState();
-    commentController = TextEditingController();
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
   }
 
-  @override
-  void dispose() {
-    commentController.dispose();
-    super.dispose();
-  }
-
-
-// Diálogo detalhado
+  // Diálogo detalhado sem os comentários
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -516,7 +483,7 @@ class _PinDetailsDialogState extends State<_PinDetailsDialog> {
             // ==========================
             Container(
               decoration: BoxDecoration(
-                color: widget.pin.color.withAlpha(200),
+                color: pin.color.withAlpha(200),
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(12),
                   topRight: Radius.circular(12),
@@ -535,7 +502,7 @@ class _PinDetailsDialogState extends State<_PinDetailsDialog> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              widget.pin.title,
+                              pin.title,
                               style: const TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
@@ -550,7 +517,7 @@ class _PinDetailsDialogState extends State<_PinDetailsDialog> {
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
-                                widget.pin.category,
+                                pin.category,
                                 style: const TextStyle(
                                   fontSize: 12,
                                   color: Colors.white,
@@ -568,7 +535,7 @@ class _PinDetailsDialogState extends State<_PinDetailsDialog> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  if (widget.pin.tutor != null)
+                  if (pin.tutor != null)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: RichText(
@@ -582,7 +549,7 @@ class _PinDetailsDialogState extends State<_PinDetailsDialog> {
                               ),
                             ),
                             TextSpan(
-                              text: widget.pin.tutor,
+                              text: pin.tutor,
                               style: const TextStyle(color: Colors.white),
                             ),
                           ],
@@ -600,7 +567,7 @@ class _PinDetailsDialogState extends State<_PinDetailsDialog> {
                           ),
                         ),
                         TextSpan(
-                          text: widget.pin.user,
+                          text: pin.user,
                           style: const TextStyle(color: Colors.white),
                         ),
                       ],
@@ -608,7 +575,7 @@ class _PinDetailsDialogState extends State<_PinDetailsDialog> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Data: ${_formatDate(widget.pin.date)}',
+                    'Data: ${_formatDate(pin.date)}',
                     style: const TextStyle(
                       fontSize: 12,
                       color: Colors.white70,
@@ -646,59 +613,12 @@ class _PinDetailsDialogState extends State<_PinDetailsDialog> {
                       child: SingleChildScrollView(
                         // scrollbar invisível (apenas gesto de scroll)
                         child: Text(
-                          widget.pin.description,
+                          pin.description,
                           style: const TextStyle(
                             fontSize: 14,
                             color: Colors.black87,
                           ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Comentários',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Expanded(
-                      child: widget.pin.comments.isEmpty
-                          ? const Text('Nenhum comentário ainda.',
-                              style: TextStyle(color: Colors.black54))
-                          : ListView.separated(
-                              itemCount: widget.pin.comments.length,
-                              separatorBuilder: (context, index) => const Divider(),
-                              itemBuilder: (context, index) {
-                                return Text(
-                                  '• ${widget.pin.comments[index]}',
-                                  style: const TextStyle(color: Colors.black87),
-                                );
-                              },
-                            ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: commentController,
-                      decoration: const InputDecoration(
-                        labelText: 'Adicionar comentário',
-                        border: OutlineInputBorder(),
-                      ),
-                      maxLines: 1,
-                    ),
-                    const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          final comment = commentController.text.trim();
-                          if (comment.isEmpty) return;
-                          widget.onAddComment(comment);
-                          commentController.clear();
-                        },
-                        child: const Text('Enviar'),
                       ),
                     ),
                   ],
@@ -710,8 +630,6 @@ class _PinDetailsDialogState extends State<_PinDetailsDialog> {
       ),
     );
   }
-
-
 }
 
 class _AddPinDialog extends StatefulWidget {
