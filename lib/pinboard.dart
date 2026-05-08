@@ -82,7 +82,19 @@ class _PinboardPageState extends State<PinboardPage> {
   @override
   void initState() {
     super.initState();
-    _loadPins();
+    _checkAuthAndLoadPins();
+  }
+
+  Future<void> _checkAuthAndLoadPins() async {
+    final session = supabase.auth.currentSession;
+    if (session == null) {
+      // Not authenticated, redirect to login
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/login');
+      }
+      return;
+    }
+    await _loadPins();
   }
 
   Future<void> _loadPins() async {

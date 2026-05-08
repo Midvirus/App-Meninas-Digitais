@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'NavBar.dart';
+import 'supabase_client.dart';
 
 class Challenge {
   final String question;
@@ -70,6 +71,23 @@ class _ChallengesPageState extends State<ChallengesPage> {
   int _totalPoints = 0;
   final DateTime _firstChallengeDate = DateTime.now();
   final Map<int, bool> _answeredCorrectly = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAuth();
+  }
+
+  Future<void> _checkAuth() async {
+    final session = supabase.auth.currentSession;
+    if (session == null) {
+      // Not authenticated, redirect to login
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/login');
+      }
+      return;
+    }
+  }
 
   void _selectAnswer(int index, String? value) {
     if (value == null) return;

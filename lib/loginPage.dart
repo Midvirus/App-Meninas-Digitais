@@ -39,22 +39,51 @@ class _LoginPageState extends State<LoginPage> {
     if (!mounted) return;
 
     if (response.session != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Login realizado com sucesso!')),
-      );
-      Navigator.pushReplacementNamed(context, '/home');
+      // Check if user is admin
+      try {
+        final userProfile = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('email', email)
+            .maybeSingle();
+
+        if (userProfile == null || userProfile['role'] != 'admin') {
+          await supabase.auth.signOut();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Acesso negado. Apenas administradores podem fazer login.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Login realizado com sucesso!')),
+        );
+        Navigator.pushReplacementNamed(context, '/home');
+      } on PostgrestException catch (error) {
+        if (!mounted) return;
+        await supabase.auth.signOut();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao buscar perfil: ${error.message}'), backgroundColor: Colors.red),
+        );
+      }
     }
   } on AuthException catch (error) {
-    // Captura erros específicos do Supabase (ex: senha errada)
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(error.message), backgroundColor: Colors.red),
     );
-  } catch (error) {
-    // Captura erros genéricos (ex: falta de internet)
+  } on PostgrestException catch (error) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Ocorreu um erro inesperado.'), backgroundColor: Colors.red),
+      SnackBar(content: Text('Erro ao acessar dados: ${error.message}'), backgroundColor: Colors.red),
+    );
+  } catch (error) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Ocorreu um erro inesperado: $error'), backgroundColor: Colors.red),
     );
   } finally {
     if (mounted) {

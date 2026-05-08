@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
+import 'supabase_client.dart';
 
 class NavBar {
   static Drawer buildDrawer(BuildContext context) {
+    final session = supabase.auth.currentSession;
+    final isLoggedIn = session != null;
+
     return Drawer(
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
-          const UserAccountsDrawerHeader(
-            accountName: Text('Usuário Meninas Digitais'),
-            accountEmail: Text('usuario@meninasdigitais.com'),
+          UserAccountsDrawerHeader(
+            accountName: Text(isLoggedIn ? 'Administrador' : 'Usuário'),
+            accountEmail: Text(isLoggedIn ? session.user.email ?? '' : 'Não logado'),
             currentAccountPicture: CircleAvatar(
               backgroundColor: Colors.white,
-              child: Icon(Icons.person, color: Colors.deepPurple),
+              child: Icon(isLoggedIn ? Icons.admin_panel_settings : Icons.person, color: Colors.deepPurple),
             ),
             decoration: BoxDecoration(
               color: Colors.deepPurple,
@@ -25,38 +29,51 @@ class NavBar {
               Navigator.pushNamed(context, '/home');
             },
           ),
-          ListTile(
-            leading: const Icon(Icons.person),
-            title: const Text('Entrar'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.pushNamed(context, '/login');
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.push_pin),
-            title: const Text('Mural'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.pushNamed(context, '/pinboard');
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.quiz),
-            title: const Text('Desafios'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.pushNamed(context, '/challenges');
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.group),
-            title: const Text('Usuários'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.pushNamed(context, '/users');
-            },
-          ),
+          if (!isLoggedIn) ...[
+            ListTile(
+              leading: const Icon(Icons.login),
+              title: const Text('Entrar'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/login');
+              },
+            ),
+          ] else ...[
+            ListTile(
+              leading: const Icon(Icons.push_pin),
+              title: const Text('Mural'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/pinboard');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.quiz),
+              title: const Text('Desafios'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/challenges');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.group),
+              title: const Text('Usuários'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/users');
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.logout),
+              title: const Text('Sair'),
+              onTap: () async {
+                Navigator.pop(context);
+                await supabase.auth.signOut();
+                Navigator.pushReplacementNamed(context, '/login');
+              },
+            ),
+          ],
         ],
       ),
     );
