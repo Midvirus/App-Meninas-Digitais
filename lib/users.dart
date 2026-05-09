@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:postgrest/postgrest.dart';
 import 'NavBar.dart';
 import 'supabase_client.dart';
+import 'package:supabase/supabase.dart';
 
 class UserProfile {
-  final String id;
+  final String? id;
   final String name;
   final String email;
   final String? category;
@@ -64,7 +65,7 @@ class UserProfile {
       'category': category,
       'role': role,
       'tutor': tutor,
-      'created_at': createdAt.toIso8601String(),
+      'created_at': createdAt.toUtc().toIso8601String(),
     };
   }
 }
@@ -106,7 +107,7 @@ class _UsersPageState extends State<UsersPage> {
     });
 
     try {
-      final rawUsers = await supabase.from('users').select().order('created_at', ascending: false);
+      final rawUsers = await supabase.from('profiles').select().order('created_at', ascending: false);
       if (!mounted) return;
       setState(() {
         users = (rawUsers as List<dynamic>)
@@ -125,7 +126,11 @@ class _UsersPageState extends State<UsersPage> {
 
   Future<void> _saveUser(UserProfile user) async {
     try {
-      await supabase.from('users').insert(user.toJson());
+      final userData = user.toJson();
+      if (user.id == null || user.id!.isEmpty) {
+        userData.remove('id');
+      }
+      await supabase.from('profiles').insert(userData);
       await _loadUsers();
     } on PostgrestException catch (error) {
       if (!mounted) return;
@@ -137,7 +142,11 @@ class _UsersPageState extends State<UsersPage> {
 
   Future<void> _updateUser(UserProfile user) async {
     try {
-      await supabase.from('users').update(user.toJson()).eq('id', user.id);
+      final userData = user.toJson();
+      if (user.id == null || user.id!.isEmpty) {
+        userData.remove('id');
+      }
+      await supabase.from('profiles').upsert(userData);
       await _loadUsers();
     } on PostgrestException catch (error) {
       if (!mounted) return;
@@ -465,7 +474,7 @@ class _AddEditUserDialogState extends State<_AddEditUserDialog> {
     }
 
     final updatedUser = UserProfile(
-      id: widget.user?.id ?? DateTime.now().toString(),
+      id: widget.user?.id ?? null,
       name: nameController.text.trim(),
       email: emailController.text.trim(),
       category: selectedRole == 'Tutor' ? categoryController.text.trim() : null,
