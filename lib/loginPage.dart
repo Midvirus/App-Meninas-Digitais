@@ -105,6 +105,15 @@ class _LoginPageState extends State<LoginPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            Column(
+              children: [
+                Image.asset(
+                  'images/logo-sem-fundo.png',
+                  height: 100,
+                ),
+                const SizedBox(height: 24),
+              ],
+            ),
             TextField(
               controller: _emailController,
               decoration: const InputDecoration(
