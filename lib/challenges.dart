@@ -352,6 +352,47 @@ class _ChallengesPageState extends State<ChallengesPage> {
     );
   }
 
+  void _confirmRemoveChallenge(int index) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Remover desafio'),
+          content: const Text(
+            'Tem certeza que deseja remover este desafio?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _challenges.removeAt(index);
+                  _selectedAnswers.remove(index);
+                  _answeredCorrectly.remove(index);
+                });
+
+                Navigator.of(context).pop();
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Desafio removido com sucesso.'),
+                  ),
+                );
+              },
+              child: const Text(
+                'Remover',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _showStatistics() {
     int daysWithChallenges = DateTime.now().difference(_firstChallengeDate).inDays + 1;
     double successRate = _totalAttempts > 0 ? (_correctAnswers / _totalAttempts * 100) : 0;
@@ -674,13 +715,23 @@ class _ChallengesPageState extends State<ChallengesPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Desafio ${index + 1}',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.deepPurple,
-                            ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Desafio ${index + 1}',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.deepPurple,
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete, color: Colors.redAccent),
+                                tooltip: 'Remover desafio',
+                                onPressed: () => _confirmRemoveChallenge(index),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 8),
                           Text(
