@@ -59,6 +59,7 @@ class _ChallengesPageState extends State<ChallengesPage> {
       correctAnswer: 'Essa é a opção correta',
       justification: 'É o que ela diz, o que mais você esperava?',
     ),
+    
   ];
 
   final Map<int, String> _selectedAnswers = {};
@@ -167,6 +168,190 @@ class _ChallengesPageState extends State<ChallengesPage> {
     );
   }
 
+  void _showAddChallengeDialog() {
+    final questionController = TextEditingController();
+    final optionControllers = <TextEditingController>[
+      TextEditingController(),
+    ];
+
+    int? selectedCorrectIndex = 0;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: const Text('Adicionar novo desafio'),
+              content: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: 100,
+                  maxHeight: MediaQuery.of(context).size.height * 0.7,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(
+                        controller: questionController,
+                        decoration: const InputDecoration(
+                          labelText: 'Enunciado do desafio',
+                          border: OutlineInputBorder(),
+                        ),
+                        maxLines: 2,
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'Opções de resposta',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.remove),
+                            tooltip: 'Remover opção',
+                            onPressed: optionControllers.length > 1
+                                ? () {
+                                    setStateDialog(() {
+                                      if (selectedCorrectIndex != null &&
+                                          selectedCorrectIndex! ==
+                                              optionControllers.length - 1) {
+                                        selectedCorrectIndex =
+                                            optionControllers.length - 2;
+                                      }
+                                      optionControllers.removeLast();
+                                    });
+                                  }
+                                : null,
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.add),
+                            tooltip: 'Adicionar opção',
+                            onPressed: optionControllers.length < 4
+                                ? () {
+                                    setStateDialog(() {
+                                      optionControllers
+                                          .add(TextEditingController());
+                                    });
+                                  }
+                                : null,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Column(
+                        children: List.generate(optionControllers.length, (index) {
+                          return Padding(
+                            padding:
+                                const EdgeInsets.symmetric(vertical: 4.0),
+                            child: Row(
+                              children: [
+                                Radio<int>(
+                                  value: index,
+                                  groupValue: selectedCorrectIndex,
+                                  onChanged: (value) {
+                                    setStateDialog(() {
+                                      selectedCorrectIndex = value;
+                                    });
+                                  },
+                                ),
+                                Expanded(
+                                  child: TextField(
+                                    controller: optionControllers[index],
+                                    decoration: InputDecoration(
+                                      labelText: 'Opção ${index + 1}',
+                                      border: const OutlineInputBorder(),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('Cancelar'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final question = questionController.text.trim();
+                    final options = optionControllers
+                        .map((c) => c.text.trim())
+                        .where((t) => t.isNotEmpty)
+                        .toList();
+
+                    if (question.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text('Digite o enunciado do desafio.')),
+                      );
+                      return;
+                    }
+
+                    if (options.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text(
+                                'Adicione pelo menos uma opção de resposta.')),
+                      );
+                      return;
+                    }
+
+                    if (selectedCorrectIndex == null ||
+                        selectedCorrectIndex! >= options.length) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content:
+                                Text('Selecione uma opção correta válida.')),
+                      );
+                      return;
+                    }
+
+                    final correctAnswer = options[selectedCorrectIndex!];
+                    final justification =
+                        'Esta é a resposta correta para este desafio.';
+
+                    setState(() {
+                      _challenges.add(
+                        Challenge(
+                          question: question,
+                          options: options,
+                          correctAnswer: correctAnswer,
+                          justification: justification,
+                        ),
+                      );
+                    });
+
+                    Navigator.of(context).pop();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepPurple,
+                  ),
+                  child: const Text(
+                    'Adicionar',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _showStatistics() {
     int daysWithChallenges = DateTime.now().difference(_firstChallengeDate).inDays + 1;
     double successRate = _totalAttempts > 0 ? (_correctAnswers / _totalAttempts * 100) : 0;
@@ -182,7 +367,7 @@ class _ChallengesPageState extends State<ChallengesPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Text(
-                  'Estatísticas do Jogador',
+                  'Estatísticas',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -237,11 +422,12 @@ class _ChallengesPageState extends State<ChallengesPage> {
                   shrinkWrap: true,
                   mainAxisSpacing: 12,
                   crossAxisSpacing: 12,
+                  physics: const NeverScrollableScrollPhysics(),
                   children: [
-                    _buildStatCard('Desafios Concluídos', _totalAttempts.toString(), Icons.check_circle, Colors.blue),
-                    _buildStatCard('Respostas Corretas', _correctAnswers.toString(), Icons.thumb_up, Colors.green),
-                    _buildStatCard('Taxa de Acerto', '${successRate.toStringAsFixed(1)}%', Icons.trending_up, Colors.orange),
-                    _buildStatCard('Dias de Desafios', daysWithChallenges.toString(), Icons.calendar_today, Colors.red),
+                    _buildStatCard(context,'Concluídos', _totalAttempts.toString(), Icons.check_circle, Colors.blue),
+                    _buildStatCard(context,'Corretos', _correctAnswers.toString(), Icons.thumb_up, Colors.green),
+                    _buildStatCard(context,'Taxa de Acerto', '${successRate.toStringAsFixed(1)}%', Icons.trending_up, Colors.orange),
+                    _buildStatCard(context,'Dias de Desafios', daysWithChallenges.toString(), Icons.calendar_today, Colors.red),
                   ],
                 ),
                 const SizedBox(height: 20),
@@ -269,7 +455,7 @@ class _ChallengesPageState extends State<ChallengesPage> {
                         children: [
                           Column(
                             children: [
-                              const Text('Sequência Atual', style: TextStyle(fontSize: 12)),
+                              const Text('Atual', style: TextStyle(fontSize: 12)),
                               Text(
                                 _currentStreak.toString(),
                                 style: const TextStyle(
@@ -282,7 +468,7 @@ class _ChallengesPageState extends State<ChallengesPage> {
                           ),
                           Column(
                             children: [
-                              const Text('Melhor Sequência', style: TextStyle(fontSize: 12)),
+                              const Text('Melhor', style: TextStyle(fontSize: 12)),
                               Text(
                                 _bestStreak.toString(),
                                 style: const TextStyle(
@@ -351,9 +537,27 @@ class _ChallengesPageState extends State<ChallengesPage> {
     );
   }
 
-  Widget _buildStatCard(String label, String value, IconData icon, Color color) {
+  Widget _buildStatCard(BuildContext context, String label, String value, IconData icon, Color color,) {
+    final width = MediaQuery.of(context).size.width;
+
+    // Largura base que você considera "normal" (por exemplo, celular ~400px)
+    const baseWidth = 400.0;
+
+    // Fator de escala: se a tela for menor que 400, o fator < 1; se for maior, > 1
+    double scale = width / baseWidth;
+
+    // Limitar para não ficar exagerado em nenhum extremo
+    if (scale < 0.7) scale = 0.7; // em telas muito pequenas, não passa de 70% do tamanho
+    if (scale > 1.2) scale = 1.2; // em telas muito grandes, não passa de 120%
+
+    final iconSize = 32.0 * scale;
+    final valueFontSize = 20.0 * scale;
+    final labelFontSize = 11.0 * scale;
+    final verticalSpacing = 8.0 * scale;
+    final cardPadding = 12.0 * scale;
+
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(cardPadding),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
         border: Border.all(color: color),
@@ -362,21 +566,24 @@ class _ChallengesPageState extends State<ChallengesPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: color, size: 32),
-          const SizedBox(height: 8),
+          Icon(icon, color: color, size: iconSize),
+          SizedBox(height: verticalSpacing),
           Text(
             value,
             style: TextStyle(
-              fontSize: 20,
+              fontSize: valueFontSize,
               fontWeight: FontWeight.bold,
               color: color,
             ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: verticalSpacing / 2),
           Text(
             label,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 11, color: Colors.grey),
+            style: TextStyle(
+              fontSize: labelFontSize,
+              color: Colors.grey[700],
+            ),
           ),
         ],
       ),
@@ -438,7 +645,7 @@ class _ChallengesPageState extends State<ChallengesPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text(
-              'Desafios com Radio Buttons',
+              'Radio Buttons',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -522,6 +729,11 @@ class _ChallengesPageState extends State<ChallengesPage> {
             ),
           ],
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showAddChallengeDialog,
+        child: const Icon(Icons.add),
+        tooltip: 'Adicionar novo desafio',
       ),
     );
   }
