@@ -70,7 +70,7 @@ class NavBar {
               onTap: () async {
                 Navigator.pop(context);
                 await supabase.auth.signOut();
-                Navigator.pushReplacementNamed(context, '/login');
+                Navigator.pushReplacementNamed(context, '/home');
               },
             ),
           ],
