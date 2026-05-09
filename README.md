@@ -9,7 +9,7 @@ O projeto reúne um aplicativo multiplataforma em Flutter e uma API REST robusta
 ## 🌐 Demonstração Online
 
 🔗 Acesse a demonstração:  
-https://midvirus.github.io/app-meninas-digitais/
+https://midvirus.github.io/App-Meninas-Digitais/
 
 ### 🔑 Acesso para Teste
 - **E-mail:** `AMDig@gmail.com`
