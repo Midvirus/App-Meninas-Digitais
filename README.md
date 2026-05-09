@@ -16,6 +16,8 @@ https://midvirus.github.io/App-Meninas-Digitais/
 - **Senha:** `12345`
 
 ---
+# Video de Execulção do projeto
+[Video de como execultar o programa](https://drive.google.com/drive/folders/1K6p9C9GPt0hRtWzt8rWcga_15YD9NS3j)
 
 # 📁 Estrutura do Projeto
 
