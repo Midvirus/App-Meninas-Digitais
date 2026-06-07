@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'NavBar.dart';
 import 'supabase_client.dart';
 
@@ -24,7 +25,26 @@ class ChallengesPage extends StatefulWidget {
   State<ChallengesPage> createState() => _ChallengesPageState();
 }
 
-class _ChallengesPageState extends State<ChallengesPage> {
+enum TutorResponseType { multipleChoice, text, file }
+
+class TutorChallenge {
+  final String question;
+  final TutorResponseType responseType;
+  final List<String> options;
+  final String description;
+
+  TutorChallenge({
+    required this.question,
+    required this.responseType,
+    this.options = const [],
+    this.description = '',
+  });
+}
+
+class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+  int _selectedTabIndex = 0;
+
   final List<Challenge> _challenges = [
     Challenge(
       question: 'Qual destas opções é uma linguagem de programação?',
@@ -59,11 +79,33 @@ class _ChallengesPageState extends State<ChallengesPage> {
       correctAnswer: 'Essa é a opção correta',
       justification: 'É o que ela diz, o que mais você esperava?',
     ),
-    
+  ];
+
+  final List<TutorChallenge> _tutorChallenges = [
+    TutorChallenge(
+      question: 'Qual destas opções é uma linguagem de programação?',
+      responseType: TutorResponseType.multipleChoice,
+      options: ['Caneta', 'Python', 'Computador'],
+      description: 'Escolha a alternativa correta.',
+    ),
+    TutorChallenge(
+      question: 'Explique o que é um botão de rádio em um formulário.',
+      responseType: TutorResponseType.text,
+      description: 'Digite sua resposta em texto.',
+    ),
+    TutorChallenge(
+      question: 'Envie o nome de um arquivo que comprovem sua atividade.',
+      responseType: TutorResponseType.file,
+      description: 'Faça o upload de um arquivo ou informe o nome dele.',
+    ),
   ];
 
   final Map<int, String> _selectedAnswers = {};
-  
+  final Map<int, String> _tutorSelectedChoices = {};
+  final Map<int, TextEditingController> _tutorTextControllers = {};
+  final Map<int, String> _tutorFileNames = {};
+  final Map<int, PlatformFile?> _tutorPickedFiles = {};
+
   // Gamification tracking
   int _totalAttempts = 0;
   int _correctAnswers = 0;
@@ -77,16 +119,31 @@ class _ChallengesPageState extends State<ChallengesPage> {
   void initState() {
     super.initState();
     _checkAuth();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      if (mounted) {
+        setState(() {
+          _selectedTabIndex = _tabController.index;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    for (final controller in _tutorTextControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
   }
 
   Future<void> _checkAuth() async {
     final session = supabase.auth.currentSession;
     if (session == null) {
-      // Not authenticated, redirect to login
       if (mounted) {
         Navigator.pushReplacementNamed(context, '/login');
       }
-      return;
     }
   }
 
@@ -108,13 +165,12 @@ class _ChallengesPageState extends State<ChallengesPage> {
 
     final challenge = _challenges[index];
     final isCorrect = selected == challenge.correctAnswer;
-    
-    // Update statistics
+
     setState(() {
       if (!_answeredCorrectly.containsKey(index)) {
         _totalAttempts++;
         _answeredCorrectly[index] = isCorrect;
-        
+
         if (isCorrect) {
           _correctAnswers++;
           _currentStreak++;
@@ -128,7 +184,7 @@ class _ChallengesPageState extends State<ChallengesPage> {
         }
       }
     });
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -156,6 +212,98 @@ class _ChallengesPageState extends State<ChallengesPage> {
                 ),
               ),
             ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Fechar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _selectTutorChoice(int index, String? value) {
+    if (value == null) return;
+    setState(() {
+      _tutorSelectedChoices[index] = value;
+    });
+  }
+
+  TextEditingController _getTutorTextController(int index) {
+    return _tutorTextControllers.putIfAbsent(index, () => TextEditingController());
+  }
+
+  Future<void> _selectTutorFile(int index) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg'],
+        withData: true,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final picked = result.files.first;
+        setState(() {
+          _tutorPickedFiles[index] = picked;
+          _tutorFileNames[index] = picked.name;
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao selecionar arquivo: $e')),
+      );
+    }
+  }
+
+  void _submitTutorResponse(int index) {
+    final challenge = _tutorChallenges[index];
+    final responseType = challenge.responseType;
+    String? responseText;
+
+    if (responseType == TutorResponseType.multipleChoice) {
+      final selected = _tutorSelectedChoices[index];
+      if (selected == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Escolha uma opção antes de enviar.')),
+        );
+        return;
+      }
+      responseText = selected;
+    } else if (responseType == TutorResponseType.text) {
+      responseText = _getTutorTextController(index).text.trim();
+      if (responseText.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Digite sua resposta antes de enviar.')),
+        );
+        return;
+      }
+    } else if (responseType == TutorResponseType.file) {
+      final picked = _tutorPickedFiles[index];
+      if (picked == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Selecione um arquivo antes de enviar.')),
+        );
+        return;
+      }
+      responseText = picked.name;
+      // Here you could access picked.bytes for upload or picked.path for local path
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Resposta enviada'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Sua resposta foi enviada com sucesso.'),
+            if (responseText != null) ...[
+              const SizedBox(height: 12),
+              Text('Resposta: $responseText'),
+            ],
           ],
         ),
         actions: [
@@ -581,15 +729,10 @@ class _ChallengesPageState extends State<ChallengesPage> {
   Widget _buildStatCard(BuildContext context, String label, String value, IconData icon, Color color,) {
     final width = MediaQuery.of(context).size.width;
 
-    // Largura base que você considera "normal" (por exemplo, celular ~400px)
     const baseWidth = 400.0;
-
-    // Fator de escala: se a tela for menor que 400, o fator < 1; se for maior, > 1
     double scale = width / baseWidth;
-
-    // Limitar para não ficar exagerado em nenhum extremo
-    if (scale < 0.7) scale = 0.7; // em telas muito pequenas, não passa de 70% do tamanho
-    if (scale > 1.2) scale = 1.2; // em telas muito grandes, não passa de 120%
+    if (scale < 0.7) scale = 0.7;
+    if (scale > 1.2) scale = 1.2;
 
     final iconSize = 32.0 * scale;
     final valueFontSize = 20.0 * scale;
@@ -672,120 +815,269 @@ class _ChallengesPageState extends State<ChallengesPage> {
     );
   }
 
+  Widget _buildGlobalChallenges(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Desafios Globais',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.deepPurple,
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Escolha a melhor resposta para cada desafio abaixo:',
+            style: TextStyle(fontSize: 16, color: Colors.black87),
+          ),
+          const SizedBox(height: 20),
+          Expanded(
+            child: ListView.builder(
+              itemCount: _challenges.length,
+              itemBuilder: (context, index) {
+                final challenge = _challenges[index];
+                return Card(
+                  elevation: 3,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  margin: const EdgeInsets.only(bottom: 16),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Desafio ${index + 1}',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.deepPurple,
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.redAccent),
+                              tooltip: 'Remover desafio',
+                              onPressed: () => _confirmRemoveChallenge(index),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          challenge.question,
+                          style: const TextStyle(fontSize: 15),
+                        ),
+                        const SizedBox(height: 12),
+                        ...challenge.options.map((option) {
+                          return RadioListTile<String>(
+                            value: option,
+                            groupValue: _selectedAnswers[index],
+                            title: Text(option),
+                            activeColor: Colors.deepPurple,
+                            contentPadding: EdgeInsets.zero,
+                            onChanged: (value) => _selectAnswer(index, value),
+                          );
+                        }),
+                        const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: ElevatedButton(
+                            onPressed: () => _submitResponse(index),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.deepPurple,
+                            ),
+                            child: const Text('Enviar resposta', style: TextStyle(color: Colors.white)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          ElevatedButton(
+            onPressed: _showStatistics,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.deepPurple,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+            child: const Text(
+              'Ver minhas estatísticas',
+              style: TextStyle(fontSize: 16, color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTutorResponseWidget(int index) {
+    final challenge = _tutorChallenges[index];
+
+    if (challenge.responseType == TutorResponseType.multipleChoice) {
+      return Column(
+        children: challenge.options.map((option) {
+          return RadioListTile<String>(
+            value: option,
+            groupValue: _tutorSelectedChoices[index],
+            title: Text(option),
+            activeColor: Colors.deepPurple,
+            contentPadding: EdgeInsets.zero,
+            onChanged: (value) => _selectTutorChoice(index, value),
+          );
+        }).toList(),
+      );
+    }
+
+    if (challenge.responseType == TutorResponseType.text) {
+      return TextField(
+        controller: _getTutorTextController(index),
+        minLines: 3,
+        maxLines: 6,
+        decoration: const InputDecoration(
+          labelText: 'Sua resposta',
+          border: OutlineInputBorder(),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ElevatedButton(
+          onPressed: () => _selectTutorFile(index),
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple),
+          child: const Text('Selecionar arquivo', style: TextStyle(color: Colors.white)),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          _tutorFileNames[index] ?? 'Nenhum arquivo selecionado',
+          style: TextStyle(
+            color: _tutorFileNames[index] == null ? Colors.grey : Colors.black,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTutorChallenges(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Desafios do Tutor',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.deepPurple,
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Responda os desafios abaixo usando múltipla escolha, texto ou arquivo.',
+            style: TextStyle(fontSize: 16, color: Colors.black87),
+          ),
+          const SizedBox(height: 20),
+          Expanded(
+            child: ListView.builder(
+              itemCount: _tutorChallenges.length,
+              itemBuilder: (context, index) {
+                final challenge = _tutorChallenges[index];
+                return Card(
+                  elevation: 3,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  margin: const EdgeInsets.only(bottom: 16),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Desafio ${index + 1}',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.deepPurple,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          challenge.question,
+                          style: const TextStyle(fontSize: 15),
+                        ),
+                        if (challenge.description.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            challenge.description,
+                            style: const TextStyle(color: Colors.black54),
+                          ),
+                        ],
+                        const SizedBox(height: 12),
+                        _buildTutorResponseWidget(index),
+                        const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: ElevatedButton(
+                            onPressed: () => _submitTutorResponse(index),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.deepPurple,
+                            ),
+                            child: const Text('Enviar resposta', style: TextStyle(color: Colors.white)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
-      ),
-      drawer: NavBar.buildDrawer(context),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'Radio Buttons',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.deepPurple,
-              ),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Escolha a melhor resposta para cada desafio abaixo:',
-              style: TextStyle(fontSize: 16, color: Colors.black87),
-            ),
-            const SizedBox(height: 20),
-            Expanded(
-              child: ListView.builder(
-                itemCount: _challenges.length,
-                itemBuilder: (context, index) {
-                  final challenge = _challenges[index];
-                  return Card(
-                    elevation: 3,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    margin: const EdgeInsets.only(bottom: 16),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Desafio ${index + 1}',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.deepPurple,
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.delete, color: Colors.redAccent),
-                                tooltip: 'Remover desafio',
-                                onPressed: () => _confirmRemoveChallenge(index),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            challenge.question,
-                            style: const TextStyle(fontSize: 15),
-                          ),
-                          const SizedBox(height: 12),
-                          ...challenge.options.map((option) {
-                            return RadioListTile<String>(
-                              value: option,
-                              groupValue: _selectedAnswers[index],
-                              title: Text(option),
-                              activeColor: Colors.deepPurple,
-                              contentPadding: EdgeInsets.zero,
-                              onChanged: (value) => _selectAnswer(index, value),
-                            );
-                          }),
-                          const SizedBox(height: 12),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: ElevatedButton(
-                              onPressed: () => _submitResponse(index),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.deepPurple,
-                              ),
-                              child: const Text('Enviar resposta', style: TextStyle(color: Colors.white)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            ElevatedButton(
-              onPressed: _showStatistics,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-              child: const Text(
-                'Ver minhas estatísticas',
-                style: TextStyle(fontSize: 16, color: Colors.white),
-              ),
-            ),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: 'Desafios Globais'),
+            Tab(text: 'Desafios do Tutor'),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showAddChallengeDialog,
-        child: const Icon(Icons.add),
-        tooltip: 'Adicionar novo desafio',
+      drawer: NavBar.buildDrawer(context),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildGlobalChallenges(context),
+          _buildTutorChallenges(context),
+        ],
       ),
+      floatingActionButton: _selectedTabIndex == 0
+          ? FloatingActionButton(
+              onPressed: _showAddChallengeDialog,
+              child: const Icon(Icons.add),
+              tooltip: 'Adicionar novo desafio',
+            )
+          : null,
     );
   }
 }

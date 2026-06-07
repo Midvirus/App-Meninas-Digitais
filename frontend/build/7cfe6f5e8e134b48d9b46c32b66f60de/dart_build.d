@@ -1,0 +1,1 @@
+ C:\\Users\\gasoa\\Dev\\Cerificadora\ 3\\appmeninasdigitais\\frontend\\build\\7cfe6f5e8e134b48d9b46c32b66f60de\\dart_build_result.json: 
