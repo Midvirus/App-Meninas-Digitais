@@ -3,6 +3,7 @@ import 'package:postgrest/postgrest.dart';
 import 'NavBar.dart';
 import 'supabase_client.dart';
 import 'package:supabase/supabase.dart';
+import 'global_state.dart';
 
 class UserProfile {
   final String? id;
@@ -91,6 +92,12 @@ class _UsersPageState extends State<UsersPage> {
   void initState() {
     super.initState();
     searchController = TextEditingController();
+    if (GlobalState.userRole == 'Tutoranda') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.pushReplacementNamed(context, '/home');
+      });
+      return;
+    }
     _loadUsers();
   }
 
@@ -107,7 +114,11 @@ class _UsersPageState extends State<UsersPage> {
     });
 
     try {
-      final rawUsers = await supabase.from('profiles').select().order('created_at', ascending: false);
+      var query = supabase.from('profiles').select();
+      if (GlobalState.userRole == 'Tutor') {
+        query = query.eq('tutor', GlobalState.userName ?? '');
+      }
+      final rawUsers = await query.order('created_at', ascending: false);
       if (!mounted) return;
       setState(() {
         users = (rawUsers as List<dynamic>)
@@ -352,11 +363,13 @@ class _UsersPageState extends State<UsersPage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _addUser,
-        tooltip: 'Adicionar pessoa',
-        child: const Icon(Icons.person_add),
-      ),
+      floatingActionButton: GlobalState.userRole == 'admin'
+          ? FloatingActionButton(
+              onPressed: _addUser,
+              tooltip: 'Adicionar pessoa',
+              child: const Icon(Icons.person_add),
+            )
+          : null,
     );
   }
 }
@@ -387,22 +400,23 @@ class _UserDetailsDialog extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
           child: const Text('Fechar'),
         ),
-        TextButton(
-          onPressed: () {
-            Navigator.pop(context);
-            showDialog<UserProfile>(
-              context: context,
-              builder: (context) => _AddEditUserDialog(
-                title: 'Editar Pessoa',
-                user: user,
-                onSubmit: (updatedUser) {
-                  onUpdate(updatedUser);
-                },
-              ),
-            );
-          },
-          child: const Text('Editar'),
-        ),
+        if (GlobalState.userRole == 'admin')
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              showDialog<UserProfile>(
+                context: context,
+                builder: (context) => _AddEditUserDialog(
+                  title: 'Editar Pessoa',
+                  user: user,
+                  onSubmit: (updatedUser) {
+                    onUpdate(updatedUser);
+                  },
+                ),
+              );
+            },
+            child: const Text('Editar'),
+          ),
       ],
     );
   }

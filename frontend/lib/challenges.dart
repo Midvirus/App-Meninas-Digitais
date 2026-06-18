@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'NavBar.dart';
 import 'supabase_client.dart';
+import 'global_state.dart';
 
 class Challenge {
   final String question;
@@ -32,12 +33,14 @@ class TutorChallenge {
   final TutorResponseType responseType;
   final List<String> options;
   final String description;
+  final String tutorName;
 
   TutorChallenge({
     required this.question,
     required this.responseType,
     this.options = const [],
     this.description = '',
+    this.tutorName = '',
   });
 }
 
@@ -87,18 +90,30 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
       responseType: TutorResponseType.multipleChoice,
       options: ['Caneta', 'Python', 'Computador'],
       description: 'Escolha a alternativa correta.',
+      tutorName: 'Fernanda',
     ),
     TutorChallenge(
       question: 'Explique o que é um botão de rádio em um formulário.',
       responseType: TutorResponseType.text,
       description: 'Digite sua resposta em texto.',
+      tutorName: 'Fernanda',
     ),
     TutorChallenge(
       question: 'Envie o nome de um arquivo que comprovem sua atividade.',
       responseType: TutorResponseType.file,
       description: 'Faça o upload de um arquivo ou informe o nome dele.',
+      tutorName: 'Fernanda',
     ),
   ];
+
+  List<TutorChallenge> get _filteredTutorChallenges {
+    if (GlobalState.userRole == 'Tutoranda') {
+      return _tutorChallenges.where((c) => c.tutorName == GlobalState.tutorName).toList();
+    } else if (GlobalState.userRole == 'Tutor') {
+      return _tutorChallenges.where((c) => c.tutorName == GlobalState.userName).toList();
+    }
+    return [];
+  }
 
   final Map<int, String> _selectedAnswers = {};
   final Map<int, String> _tutorSelectedChoices = {};
@@ -119,7 +134,10 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
   void initState() {
     super.initState();
     _checkAuth();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(
+      length: GlobalState.userRole == 'admin' ? 1 : 2, 
+      vsync: this
+    );
     _tabController.addListener(() {
       if (mounted) {
         setState(() {
@@ -541,6 +559,234 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
     );
   }
 
+  void _showAddTutorChallengeDialog() {
+    final questionController = TextEditingController();
+    final optionControllers = <TextEditingController>[
+      TextEditingController(),
+    ];
+    TutorResponseType selectedType = TutorResponseType.multipleChoice;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: const Text('Adicionar desafio do tutor'),
+              content: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: 100,
+                  maxHeight: MediaQuery.of(context).size.height * 0.7,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      DropdownButtonFormField<TutorResponseType>(
+                        value: selectedType,
+                        decoration: const InputDecoration(
+                          labelText: 'Tipo de Desafio',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: TutorResponseType.multipleChoice,
+                            child: Text('Alternativa'),
+                          ),
+                          DropdownMenuItem(
+                            value: TutorResponseType.text,
+                            child: Text('Texto'),
+                          ),
+                          DropdownMenuItem(
+                            value: TutorResponseType.file,
+                            child: Text('Arquivo'),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) {
+                            setStateDialog(() {
+                              selectedType = value;
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: questionController,
+                        decoration: const InputDecoration(
+                          labelText: 'Enunciado do desafio',
+                          border: OutlineInputBorder(),
+                        ),
+                        maxLines: 2,
+                      ),
+                      const SizedBox(height: 16),
+                      if (selectedType == TutorResponseType.multipleChoice) ...[
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                'Opções de resposta',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.remove),
+                              tooltip: 'Remover opção',
+                              onPressed: optionControllers.length > 1
+                                  ? () {
+                                      setStateDialog(() {
+                                        optionControllers.removeLast();
+                                      });
+                                    }
+                                  : null,
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.add),
+                              tooltip: 'Adicionar opção',
+                              onPressed: optionControllers.length < 4
+                                  ? () {
+                                      setStateDialog(() {
+                                        optionControllers
+                                            .add(TextEditingController());
+                                      });
+                                    }
+                                  : null,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Column(
+                          children: List.generate(optionControllers.length, (index) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4.0),
+                              child: TextField(
+                                controller: optionControllers[index],
+                                decoration: InputDecoration(
+                                  labelText: 'Opção ${index + 1}',
+                                  border: const OutlineInputBorder(),
+                                ),
+                              ),
+                            );
+                          }),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('Cancelar'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final question = questionController.text.trim();
+                    if (question.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Digite o enunciado.')),
+                      );
+                      return;
+                    }
+
+                    List<String> options = [];
+                    String description = '';
+
+                    if (selectedType == TutorResponseType.multipleChoice) {
+                      options = optionControllers
+                          .map((c) => c.text.trim())
+                          .where((t) => t.isNotEmpty)
+                          .toList();
+                      if (options.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Adicione pelo menos uma opção.')),
+                        );
+                        return;
+                      }
+                      description = 'Escolha a alternativa correta.';
+                    } else if (selectedType == TutorResponseType.text) {
+                      description = 'Digite sua resposta em texto.';
+                    } else if (selectedType == TutorResponseType.file) {
+                      description = 'Faça o upload de um arquivo ou informe o nome dele.';
+                    }
+
+                    setState(() {
+                      _tutorChallenges.add(
+                        TutorChallenge(
+                          question: question,
+                          responseType: selectedType,
+                          options: options,
+                          description: description,
+                          tutorName: GlobalState.userName ?? '',
+                        ),
+                      );
+                    });
+
+                    Navigator.of(context).pop();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepPurple,
+                  ),
+                  child: const Text(
+                    'Adicionar',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _confirmRemoveTutorChallenge(int originalIndex) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Remover desafio do tutor'),
+          content: const Text(
+            'Tem certeza que deseja remover este desafio?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _tutorChallenges.removeAt(originalIndex);
+                  _tutorSelectedChoices.remove(originalIndex);
+                  _tutorTextControllers.remove(originalIndex);
+                  _tutorFileNames.remove(originalIndex);
+                  _tutorPickedFiles.remove(originalIndex);
+                });
+
+                Navigator.of(context).pop();
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Desafio do tutor removido com sucesso.'),
+                  ),
+                );
+              },
+              child: const Text(
+                'Remover',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _showStatistics() {
     int daysWithChallenges = DateTime.now().difference(_firstChallengeDate).inDays + 1;
     double successRate = _totalAttempts > 0 ? (_correctAnswers / _totalAttempts * 100) : 0;
@@ -862,11 +1108,12 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
                                 color: Colors.deepPurple,
                               ),
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.redAccent),
-                              tooltip: 'Remover desafio',
-                              onPressed: () => _confirmRemoveChallenge(index),
-                            ),
+                            if (GlobalState.userRole != 'Tutoranda')
+                              IconButton(
+                                icon: const Icon(Icons.delete, color: Colors.redAccent),
+                                tooltip: 'Remover desafio',
+                                onPressed: () => _confirmRemoveChallenge(index),
+                              ),
                           ],
                         ),
                         const SizedBox(height: 8),
@@ -903,17 +1150,18 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
               },
             ),
           ),
-          ElevatedButton(
-            onPressed: _showStatistics,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.deepPurple,
-              padding: const EdgeInsets.symmetric(vertical: 14),
+          if (GlobalState.userRole == 'Tutoranda')
+            ElevatedButton(
+              onPressed: _showStatistics,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurple,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              child: const Text(
+                'Ver minhas estatísticas',
+                style: TextStyle(fontSize: 16, color: Colors.white),
+              ),
             ),
-            child: const Text(
-              'Ver minhas estatísticas',
-              style: TextStyle(fontSize: 16, color: Colors.white),
-            ),
-          ),
         ],
       ),
     );
@@ -969,6 +1217,7 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
   }
 
   Widget _buildTutorChallenges(BuildContext context) {
+    final challenges = _filteredTutorChallenges;
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -990,9 +1239,10 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
           const SizedBox(height: 20),
           Expanded(
             child: ListView.builder(
-              itemCount: _tutorChallenges.length,
+              itemCount: challenges.length,
               itemBuilder: (context, index) {
-                final challenge = _tutorChallenges[index];
+                final challenge = challenges[index];
+                final originalIndex = _tutorChallenges.indexOf(challenge);
                 return Card(
                   elevation: 3,
                   shape: RoundedRectangleBorder(
@@ -1004,13 +1254,24 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Desafio ${index + 1}',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.deepPurple,
-                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Desafio ${index + 1}',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.deepPurple,
+                              ),
+                            ),
+                            if (GlobalState.userRole == 'Tutor')
+                              IconButton(
+                                icon: const Icon(Icons.delete, color: Colors.redAccent),
+                                tooltip: 'Remover desafio',
+                                onPressed: () => _confirmRemoveTutorChallenge(originalIndex),
+                              ),
+                          ],
                         ),
                         const SizedBox(height: 8),
                         Text(
@@ -1025,12 +1286,12 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
                           ),
                         ],
                         const SizedBox(height: 12),
-                        _buildTutorResponseWidget(index),
+                        _buildTutorResponseWidget(originalIndex),
                         const SizedBox(height: 12),
                         Align(
                           alignment: Alignment.centerRight,
                           child: ElevatedButton(
-                            onPressed: () => _submitTutorResponse(index),
+                            onPressed: () => _submitTutorResponse(originalIndex),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.deepPurple,
                             ),
@@ -1057,9 +1318,10 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
         title: Text(widget.title),
         bottom: TabBar(
           controller: _tabController,
-          tabs: const [
-            Tab(text: 'Desafios Globais'),
-            Tab(text: 'Desafios do Tutor'),
+          tabs: [
+            const Tab(text: 'Desafios Globais'),
+            if (GlobalState.userRole != 'admin')
+              const Tab(text: 'Desafios do Tutor'),
           ],
         ),
       ),
@@ -1068,16 +1330,32 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
         controller: _tabController,
         children: [
           _buildGlobalChallenges(context),
-          _buildTutorChallenges(context),
+          if (GlobalState.userRole != 'admin')
+            _buildTutorChallenges(context),
         ],
       ),
-      floatingActionButton: _selectedTabIndex == 0
-          ? FloatingActionButton(
-              onPressed: _showAddChallengeDialog,
-              child: const Icon(Icons.add),
-              tooltip: 'Adicionar novo desafio',
-            )
-          : null,
+      floatingActionButton: _getFloatingActionButton(),
     );
+  }
+
+  Widget? _getFloatingActionButton() {
+    if (_selectedTabIndex == 0) {
+      if (GlobalState.userRole != 'Tutoranda') {
+        return FloatingActionButton(
+          onPressed: _showAddChallengeDialog,
+          child: const Icon(Icons.add),
+          tooltip: 'Adicionar novo desafio',
+        );
+      }
+    } else if (_selectedTabIndex == 1) {
+      if (GlobalState.userRole == 'Tutor') {
+        return FloatingActionButton(
+          onPressed: _showAddTutorChallengeDialog,
+          child: const Icon(Icons.add),
+          tooltip: 'Adicionar desafio do tutor',
+        );
+      }
+    }
+    return null;
   }
 }

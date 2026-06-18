@@ -5,6 +5,7 @@ import 'pinboard.dart';
 import 'challenges.dart';
 import 'users.dart';
 import 'supabase_client.dart';
+import 'global_state.dart';
 
 void main() {
   runApp(const MyApp());
@@ -42,7 +43,6 @@ class AuthWrapper extends StatefulWidget {
 
 class _AuthWrapperState extends State<AuthWrapper> {
   bool _isLoading = true;
-  bool _isAuthenticated = false;
 
   @override
   void initState() {
@@ -52,28 +52,43 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   Future<void> _checkAuthState() async {
     final session = supabase.auth.currentSession;
-    setState(() {
-      _isAuthenticated = session != null;
-      _isLoading = false;
-    });
+    if (session != null) {
+      try {
+        final profile = await supabase
+            .from('profiles')
+            .select('role, name, tutor')
+            .eq('email', session.user.email ?? '')
+            .maybeSingle();
+        if (profile != null) {
+          GlobalState.userRole = profile['role'] as String?;
+          GlobalState.userName = profile['name'] as String?;
+          GlobalState.tutorName = profile['tutor'] as String?;
+        }
+      } catch (e) {
+        // ignore errors on startup
+      }
+    } else {
+      GlobalState.clear();
+    }
+    
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const MaterialApp(
-        home: Scaffold(
-          body: Center(
-            child: CircularProgressIndicator(),
-          ),
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
         ),
       );
     }
 
-    //if (_isAuthenticated) {
-      return const MyHomePage(title: 'Meninas Digitais');
-    /*} else {
-      return const LoginPage();
-    }*/
+    // A página inicial é sempre a Home, independente do login.
+    return const MyHomePage(title: 'Meninas Digitais');
   }
 }
