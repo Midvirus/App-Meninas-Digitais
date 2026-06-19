@@ -12,7 +12,16 @@ class UserProfile {
   final String? category;
   final String role;
   final String? tutor;
+  final String? observacoes;
   final DateTime createdAt;
+
+  // Mock stats
+  int get mockPosts => 12;
+  int get mockDesafiosCriados => 5;
+  int get mockTutorandas => 3;
+  double get mockConclusao => 0.75;
+  int get mockDesafiosFeitos => 15;
+  int get mockAcertos => 12;
 
   UserProfile({
     required this.id,
@@ -21,6 +30,7 @@ class UserProfile {
     this.category,
     required this.role,
     this.tutor,
+    this.observacoes,
     required this.createdAt,
   });
 
@@ -31,6 +41,7 @@ class UserProfile {
     String? category,
     String? role,
     String? tutor,
+    String? observacoes,
     DateTime? createdAt,
   }) {
     return UserProfile(
@@ -40,6 +51,7 @@ class UserProfile {
       category: category ?? this.category,
       role: role ?? this.role,
       tutor: tutor ?? this.tutor,
+      observacoes: observacoes ?? this.observacoes,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -52,6 +64,7 @@ class UserProfile {
       category: json['category'] as String?,
       role: json['role'] as String? ?? 'Tutoranda',
       tutor: json['tutor'] as String?,
+      observacoes: json['observacoes'] as String?,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : DateTime.now(),
@@ -151,6 +164,32 @@ class _UsersPageState extends State<UsersPage> {
     }
   }
 
+  Future<void> _deleteUser(String? id) async {
+    if (id == null) return;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Excluir Usuário'),
+        content: const Text('Tem certeza que deseja excluir este usuário?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Excluir', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    try {
+      await supabase.from('profiles').delete().eq('id', id);
+      await _loadUsers();
+    } on PostgrestException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao excluir usuário: ${error.message}')),
+      );
+    }
+  }
+
   Future<void> _updateUser(UserProfile user) async {
     try {
       final userData = user.toJson();
@@ -181,10 +220,12 @@ class _UsersPageState extends State<UsersPage> {
   }
 
   void _addUser() {
+    final tutorsList = users.where((u) => u.role == 'Tutor').toList();
     showDialog<UserProfile>(
       context: context,
       builder: (context) => _AddEditUserDialog(
         title: 'Adicionar Pessoa',
+        tutors: tutorsList,
         onSubmit: (newUser) async {
           await _saveUser(newUser);
         },
@@ -193,10 +234,12 @@ class _UsersPageState extends State<UsersPage> {
   }
 
   void _showUserDetails(int index) {
+    final tutorsList = users.where((u) => u.role == 'Tutor').toList();
     showDialog(
       context: context,
       builder: (context) => _UserDetailsDialog(
         user: users[index],
+        tutors: tutorsList,
         onUpdate: (updatedUser) async {
           await _updateUser(updatedUser);
         },
@@ -249,7 +292,7 @@ class _UsersPageState extends State<UsersPage> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        initialValue: selectedClassFilter,
+                        value: selectedClassFilter,
                         decoration: InputDecoration(
                           labelText: 'Classe',
                           border: OutlineInputBorder(
@@ -311,51 +354,90 @@ class _UsersPageState extends State<UsersPage> {
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 elevation: 2,
-                                child: ListTile(
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 12,
-                                  ),
-                                  title: Text(
-                                    user.name,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold),
-                                  ),
-                                  subtitle: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(12),
+                                  onTap: () => _showUserDetails(index),
+                                  child: Stack(
                                     children: [
-                                      const SizedBox(height: 4),
-                                      Text(user.email),
-                                      const SizedBox(height: 4),
-                                      Text(user.category != null
-                                          ? '${user.role} • ${user.category}'
-                                          : user.role),
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 12,
+                                        ),
+                                        child: Row(
+                                          crossAxisAlignment: CrossAxisAlignment.center,
+                                          children: [
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    user.name,
+                                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  Text(user.email),
+                                                  if (user.role == 'Tutor' && (GlobalState.userRole?.toLowerCase() == 'admin' || GlobalState.userRole == 'Admin'))
+                                                    Padding(
+                                                      padding: const EdgeInsets.only(top: 4),
+                                                      child: Column(
+                                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                                        children: [
+                                                          Text('Posts: ${user.mockPosts}', style: const TextStyle(fontSize: 12)),
+                                                          Text('Desafios: ${user.mockDesafiosCriados}', style: const TextStyle(fontSize: 12)),
+                                                          Text('Tutorandas: ${user.mockTutorandas}', style: const TextStyle(fontSize: 12)),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  if (user.role == 'Tutoranda')
+                                                    Padding(
+                                                      padding: const EdgeInsets.only(top: 4),
+                                                      child: Column(
+                                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                                        children: [
+                                                          Text('Tutor: ${user.tutor ?? 'Não atribuído'}', style: const TextStyle(fontSize: 12)),
+                                                          Text('Concluído: ${(user.mockConclusao * 100).toStringAsFixed(0)}%', style: const TextStyle(fontSize: 12)),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                ],
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 8,
+                                                vertical: 4,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: Theme.of(context).colorScheme.primary.withAlpha(31),
+                                                borderRadius: BorderRadius.circular(20),
+                                              ),
+                                              child: Text(
+                                                user.role,
+                                                style: TextStyle(
+                                                  color: Theme.of(context).colorScheme.primary,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (GlobalState.userRole?.toLowerCase() == 'admin' || GlobalState.userRole == 'Admin')
+                                        Positioned(
+                                          top: 4,
+                                          right: 4,
+                                          child: IconButton(
+                                            icon: const Icon(Icons.delete, color: Colors.red, size: 18),
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(),
+                                            onPressed: () => _deleteUser(user.id),
+                                          ),
+                                        ),
                                     ],
                                   ),
-                                  trailing: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .primary
-                                          .withAlpha(31),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Text(
-                                      user.role,
-                                      style: TextStyle(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .primary,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                  onTap: () => _showUserDetails(index),
                                 ),
                               );
                             },
@@ -374,33 +456,92 @@ class _UsersPageState extends State<UsersPage> {
   }
 }
 
-class _UserDetailsDialog extends StatelessWidget {
+class _UserDetailsDialog extends StatefulWidget {
   final UserProfile user;
+  final List<UserProfile> tutors;
   final ValueChanged<UserProfile> onUpdate;
 
-  const _UserDetailsDialog({required this.user, required this.onUpdate});
+  const _UserDetailsDialog({required this.user, required this.tutors, required this.onUpdate});
+
+  @override
+  State<_UserDetailsDialog> createState() => _UserDetailsDialogState();
+}
+
+class _UserDetailsDialogState extends State<_UserDetailsDialog> {
+  late TextEditingController obsController;
+
+  @override
+  void initState() {
+    super.initState();
+    obsController = TextEditingController(text: widget.user.observacoes ?? '');
+  }
+
+  @override
+  void dispose() {
+    obsController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final isTutor = GlobalState.userRole == 'Tutor';
+    final isAdmin = GlobalState.userRole?.toLowerCase() == 'admin' || GlobalState.userRole == 'Admin';
+    final user = widget.user;
+
     return AlertDialog(
       title: const Text('Detalhes da Pessoa'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _infoRow('Nome', user.name),
-          _infoRow('Email', user.email),
-          if (user.category != null) _infoRow('Categoria', user.category!),
-          _infoRow('Papel', user.role),
-          _infoRow('Tutor', user.tutor ?? 'Não informado'),
-        ],
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _infoRow('Nome', user.name),
+            _infoRow('Email', user.email),
+            _infoRow('Papel', user.role),
+            if (user.role == 'Tutoranda') ...[
+              const SizedBox(height: 8),
+              _infoRow('Tutor', user.tutor ?? 'Não atribuído'),
+              _infoRow('Desafios Feitos', '${user.mockDesafiosFeitos}'),
+              _infoRow('Desafios Publicados', '${user.mockDesafiosCriados}'),
+              _infoRow('Respostas Corretas', '${user.mockAcertos}'),
+              const SizedBox(height: 16),
+              const Text('Observações:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              TextField(
+                controller: obsController,
+                maxLines: 4,
+                readOnly: !isTutor,
+                decoration: InputDecoration(
+                  border: const OutlineInputBorder(),
+                  hintText: 'Nenhuma observação',
+                  fillColor: !isTutor ? Colors.grey[100] : null,
+                  filled: !isTutor,
+                ),
+              ),
+            ] else if (user.role == 'Tutor' && isAdmin) ...[
+              const SizedBox(height: 8),
+              _infoRow('Posts Feitos', '${user.mockPosts}'),
+              _infoRow('Desafios Criados', '${user.mockDesafiosCriados}'),
+              _infoRow('Tutorandas', '${user.mockTutorandas}'),
+            ],
+          ],
+        ),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('Fechar'),
         ),
-        if (GlobalState.userRole == 'admin')
+        if (isTutor && user.role == 'Tutoranda')
+          TextButton(
+            onPressed: () {
+              final updated = widget.user.copyWith(observacoes: obsController.text.trim());
+              Navigator.pop(context);
+              widget.onUpdate(updated);
+            },
+            child: const Text('Salvar Observações'),
+          ),
+        if (isAdmin)
           TextButton(
             onPressed: () {
               Navigator.pop(context);
@@ -409,8 +550,9 @@ class _UserDetailsDialog extends StatelessWidget {
                 builder: (context) => _AddEditUserDialog(
                   title: 'Editar Pessoa',
                   user: user,
+                  tutors: widget.tutors,
                   onSubmit: (updatedUser) {
-                    onUpdate(updatedUser);
+                    widget.onUpdate(updatedUser);
                   },
                 ),
               );
@@ -423,7 +565,7 @@ class _UserDetailsDialog extends StatelessWidget {
 
   Widget _infoRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -438,11 +580,13 @@ class _UserDetailsDialog extends StatelessWidget {
 class _AddEditUserDialog extends StatefulWidget {
   final String title;
   final UserProfile? user;
+  final List<UserProfile> tutors;
   final ValueChanged<UserProfile> onSubmit;
 
   const _AddEditUserDialog({
     required this.title,
     this.user,
+    required this.tutors,
     required this.onSubmit,
   });
 
@@ -453,28 +597,27 @@ class _AddEditUserDialog extends StatefulWidget {
 class _AddEditUserDialogState extends State<_AddEditUserDialog> {
   late TextEditingController nameController;
   late TextEditingController emailController;
-  late TextEditingController categoryController;
-  late TextEditingController tutorController;
   late String selectedRole;
+  String? selectedTutor;
 
   @override
   void initState() {
     super.initState();
     nameController = TextEditingController(text: widget.user?.name ?? '');
     emailController = TextEditingController(text: widget.user?.email ?? '');
-    categoryController = TextEditingController(
-      text: widget.user?.category ?? '',
-    );
-    tutorController = TextEditingController(text: widget.user?.tutor ?? '');
     selectedRole = widget.user?.role ?? 'Tutoranda';
+    
+    if (widget.user?.tutor != null && widget.user!.tutor!.isNotEmpty) {
+      if (widget.tutors.any((t) => t.name == widget.user!.tutor)) {
+        selectedTutor = widget.user!.tutor;
+      }
+    }
   }
 
   @override
   void dispose() {
     nameController.dispose();
     emailController.dispose();
-    categoryController.dispose();
-    tutorController.dispose();
     super.dispose();
   }
 
@@ -483,7 +626,10 @@ class _AddEditUserDialogState extends State<_AddEditUserDialog> {
       return;
     }
 
-    if (selectedRole == 'Tutor' && categoryController.text.trim().isEmpty) {
+    if (selectedRole == 'Tutoranda' && selectedTutor == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor, selecione um orientador.')),
+      );
       return;
     }
 
@@ -491,11 +637,10 @@ class _AddEditUserDialogState extends State<_AddEditUserDialog> {
       id: widget.user?.id ?? null,
       name: nameController.text.trim(),
       email: emailController.text.trim(),
-      category: selectedRole == 'Tutor' ? categoryController.text.trim() : null,
+      category: null,
       role: selectedRole,
-      tutor: tutorController.text.trim().isEmpty
-          ? null
-          : tutorController.text.trim(),
+      tutor: selectedRole == 'Tutoranda' ? selectedTutor : null,
+      observacoes: widget.user?.observacoes,
       createdAt: widget.user?.createdAt ?? DateTime.now(),
     );
 
@@ -528,21 +673,8 @@ class _AddEditUserDialogState extends State<_AddEditUserDialog> {
               keyboardType: TextInputType.emailAddress,
             ),
             const SizedBox(height: 12),
-            if (selectedRole == 'Tutor')
-              Column(
-                children: [
-                  TextField(
-                    controller: categoryController,
-                    decoration: const InputDecoration(
-                      labelText: 'Categoria',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-              ),
             DropdownButtonFormField<String>(
-              initialValue: selectedRole,
+              value: selectedRole,
               decoration: const InputDecoration(
                 labelText: 'Papel',
                 border: OutlineInputBorder(),
@@ -555,20 +687,31 @@ class _AddEditUserDialogState extends State<_AddEditUserDialog> {
                 if (value != null) {
                   setState(() {
                     selectedRole = value;
+                    if (selectedRole == 'Tutor') {
+                      selectedTutor = null;
+                    }
                   });
                 }
               },
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: tutorController,
-              decoration: InputDecoration(
-                labelText: selectedRole == 'Tutoranda'
-                    ? 'Orientador (opcional)'
-                    : 'Orientador',
-                border: const OutlineInputBorder(),
+            if (selectedRole == 'Tutoranda') ...[
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: selectedTutor,
+                decoration: const InputDecoration(
+                  labelText: 'Orientador (Tutor)',
+                  border: OutlineInputBorder(),
+                ),
+                items: widget.tutors.map((tutor) {
+                  return DropdownMenuItem(value: tutor.name, child: Text(tutor.name));
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    selectedTutor = value;
+                  });
+                },
               ),
-            ),
+            ],
           ],
         ),
       ),
