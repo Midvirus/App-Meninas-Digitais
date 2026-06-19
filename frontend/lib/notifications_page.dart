@@ -113,7 +113,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
   String _responseLabel(FeedbackResponseType t) {
     switch (t) {
       case FeedbackResponseType.multipleChoice:
-        return 'Multipla Escolha';
+        return 'Escolha';
       case FeedbackResponseType.text:
         return 'Texto';
       case FeedbackResponseType.file:
@@ -187,7 +187,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                             size: 14, color: Colors.grey[500]),
                         const SizedBox(width: 4),
                         Text(
-                          'Feedback em ${_formatDate(fb.feedbackDate)}',
+                          'Feedback: ${_formatDate(fb.feedbackDate)}',
                           style:
                               TextStyle(fontSize: 12, color: Colors.grey[500]),
                         ),

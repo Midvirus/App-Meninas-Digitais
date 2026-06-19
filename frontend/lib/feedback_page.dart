@@ -133,7 +133,7 @@ class _FeedbackPageState extends State<FeedbackPage>
   String _responseLabel(SubmissionType t) {
     switch (t) {
       case SubmissionType.multipleChoice:
-        return 'Multipla Escolha';
+        return 'Escolha';
       case SubmissionType.text:
         return 'Texto';
       case SubmissionType.file:
@@ -264,7 +264,7 @@ class _FeedbackPageState extends State<FeedbackPage>
             ),
             ElevatedButton.icon(
               icon: const Icon(Icons.rate_review, size: 18),
-              label: const Text('Dar Feedback'),
+              label: const Text('Feedback'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.deepPurple,
                 foregroundColor: Colors.white,
@@ -459,7 +459,7 @@ class _FeedbackPageState extends State<FeedbackPage>
               children: [
                 Icon(Icons.rate_review, color: Colors.deepPurple),
                 SizedBox(width: 8),
-                Text('Enviar Feedback',
+                Text('Feedback',
                     style: TextStyle(fontWeight: FontWeight.bold)),
               ],
             ),
@@ -741,7 +741,7 @@ class _FeedbackPageState extends State<FeedbackPage>
               children: [
                 OutlinedButton.icon(
                   icon: const Icon(Icons.visibility, size: 16),
-                  label: const Text('Ver detalhes'),
+                  label: const Text('Detalhes'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.deepPurple,
                     side: const BorderSide(color: Colors.deepPurple),
@@ -753,7 +753,7 @@ class _FeedbackPageState extends State<FeedbackPage>
                 const SizedBox(width: 8),
                 ElevatedButton.icon(
                   icon: const Icon(Icons.rate_review, size: 16),
-                  label: const Text('Dar Feedback'),
+                  label: const Text('Feedback'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.deepPurple,
                     foregroundColor: Colors.white,
