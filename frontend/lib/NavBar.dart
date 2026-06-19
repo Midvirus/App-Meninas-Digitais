@@ -83,6 +83,15 @@ class NavBar {
                   Navigator.pushNamed(context, '/users');
                 },
               ),
+            if (GlobalState.userRole == 'admin')
+              ListTile(
+                leading: const Icon(Icons.bar_chart),
+                title: const Text('Dados do Projeto'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/project-data');
+                },
+              ),
             const Divider(),
             ListTile(
               leading: const Icon(Icons.logout),

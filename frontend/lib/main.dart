@@ -6,6 +6,7 @@ import 'challenges.dart';
 import 'users.dart';
 import 'feedback_page.dart';
 import 'notifications_page.dart';
+import 'project_data_page.dart';
 import 'supabase_client.dart';
 import 'global_state.dart';
 
@@ -33,6 +34,7 @@ class MyApp extends StatelessWidget {
         '/users': (context) => const UsersPage(title: 'Usuários'),
         '/feedback': (context) => const FeedbackPage(title: 'Feedback'),
         '/notifications': (context) => const NotificationsPage(title: 'Notificações'),
+        '/project-data': (context) => const ProjectDataPage(title: 'Dados do Projeto'),
       },
     );
   }
