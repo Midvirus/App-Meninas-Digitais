@@ -56,6 +56,15 @@ class NavBar {
                 Navigator.pushNamed(context, '/challenges');
               },
             ),
+            if (GlobalState.userRole == 'Tutor')
+              ListTile(
+                leading: const Icon(Icons.rate_review),
+                title: const Text('Feedback'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/feedback');
+                },
+              ),
             if (GlobalState.userRole != 'Tutoranda')
               ListTile(
                 leading: const Icon(Icons.group),

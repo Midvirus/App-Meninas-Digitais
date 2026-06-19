@@ -4,6 +4,7 @@ import 'homePage.dart';
 import 'pinboard.dart';
 import 'challenges.dart';
 import 'users.dart';
+import 'feedback_page.dart';
 import 'supabase_client.dart';
 import 'global_state.dart';
 
@@ -29,6 +30,7 @@ class MyApp extends StatelessWidget {
         '/pinboard': (context) => const PinboardPage(title: 'Mural'),
         '/challenges': (context) => const ChallengesPage(title: 'Desafios'),
         '/users': (context) => const UsersPage(title: 'Usuários'),
+        '/feedback': (context) => const FeedbackPage(title: 'Feedback'),
       },
     );
   }
