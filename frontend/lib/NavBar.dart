@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'supabase_client.dart';
 import 'global_state.dart';
 
 class NavBar {
   static Drawer buildDrawer(BuildContext context) {
-    final session = supabase.auth.currentSession;
-    final isLoggedIn = session != null;
+    final isLoggedIn = GlobalState.isLoggedIn;
 
     return Drawer(
       child: ListView(
@@ -13,7 +11,7 @@ class NavBar {
         children: [
           UserAccountsDrawerHeader(
             accountName: Text(isLoggedIn ? GlobalState.userName ?? GlobalState.userRole ?? 'Usuário' : 'Usuário'),
-            accountEmail: Text(isLoggedIn ? session.user.email ?? '' : 'Não logado'),
+            accountEmail: Text(isLoggedIn ? GlobalState.userEmail ?? '' : 'Não logado'),
             currentAccountPicture: CircleAvatar(
               backgroundColor: Colors.white,
               child: Icon(isLoggedIn ? Icons.admin_panel_settings : Icons.person, color: Colors.deepPurple),
@@ -98,7 +96,6 @@ class NavBar {
               title: const Text('Sair'),
               onTap: () async {
                 Navigator.pop(context);
-                await supabase.auth.signOut();
                 GlobalState.clear();
                 Navigator.pushReplacementNamed(context, '/home');
               },

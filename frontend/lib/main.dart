@@ -7,7 +7,7 @@ import 'users.dart';
 import 'feedback_page.dart';
 import 'notifications_page.dart';
 import 'project_data_page.dart';
-import 'supabase_client.dart';
+import 'api_client.dart';
 import 'global_state.dart';
 
 void main() {
@@ -57,21 +57,19 @@ class _AuthWrapperState extends State<AuthWrapper> {
   }
 
   Future<void> _checkAuthState() async {
-    final session = supabase.auth.currentSession;
-    if (session != null) {
+    if (GlobalState.isLoggedIn) {
       try {
-        final profile = await supabase
-            .from('profiles')
-            .select('role, name, tutor')
-            .eq('email', session.user.email ?? '')
-            .maybeSingle();
-        if (profile != null) {
-          GlobalState.userRole = profile['role'] as String?;
-          GlobalState.userName = profile['name'] as String?;
-          GlobalState.tutorName = profile['tutor'] as String?;
+        final profile = await ApiClient.getProfile();
+        final backendRole = profile['role'] as String? ?? '';
+        GlobalState.userRole = ApiClient.mapRoleFromBackend(backendRole);
+        GlobalState.userName = profile['nome'] as String?;
+        final tutora = profile['tutora'];
+        if (tutora != null && tutora is Map<String, dynamic>) {
+          GlobalState.tutorName = tutora['nome'] as String?;
         }
       } catch (e) {
-        // ignore errors on startup
+        // Token may be expired/invalid — clear session
+        GlobalState.clear();
       }
     } else {
       GlobalState.clear();

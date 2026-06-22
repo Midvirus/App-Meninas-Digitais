@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:postgrest/postgrest.dart';
 import 'NavBar.dart';
-import 'supabase_client.dart';
-import 'package:supabase/supabase.dart';
+import 'api_client.dart';
 import 'global_state.dart';
 
 class UserProfile {
-  final String? id;
+  final dynamic id;
   final String name;
   final String email;
   final String? category;
@@ -35,7 +33,7 @@ class UserProfile {
   });
 
   UserProfile copyWith({
-    String? id,
+    dynamic id,
     String? name,
     String? email,
     String? category,
@@ -56,30 +54,41 @@ class UserProfile {
     );
   }
 
+  /// Parse from backend Usuario JSON
   factory UserProfile.fromJson(Map<String, dynamic> json) {
+    // Map backend role enum to frontend display string
+    final backendRole = json['role'] as String? ?? 'TUTORANDA';
+    final role = ApiClient.mapRoleFromBackend(backendRole);
+
+    // Extract tutor name from nested tutora object
+    String? tutorName;
+    final tutora = json['tutora'];
+    if (tutora != null && tutora is Map<String, dynamic>) {
+      tutorName = tutora['nome'] as String?;
+    }
+
     return UserProfile(
-      id: json['id'] as String,
-      name: json['name'] as String? ?? '',
+      id: json['id'],
+      name: json['nome'] as String? ?? '',
       email: json['email'] as String? ?? '',
-      category: json['category'] as String?,
-      role: json['role'] as String? ?? 'Tutoranda',
-      tutor: json['tutor'] as String?,
-      observacoes: json['observacoes'] as String?,
-      createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'] as String)
+      category: json['escolaInstituicao'] as String?,
+      role: role,
+      tutor: tutorName,
+      observacoes: null, // Backend doesn't have this field directly
+      createdAt: json['criadoEm'] != null
+          ? DateTime.parse(json['criadoEm'] as String)
           : DateTime.now(),
     );
   }
 
-  Map<String, dynamic> toJson() {
+  /// Convert to backend CadastroUsuarioRequest JSON format
+  Map<String, dynamic> toBackendJson() {
     return {
-      'id': id,
-      'name': name,
+      'nome': name,
       'email': email,
-      'category': category,
-      'role': role,
-      'tutor': tutor,
-      'created_at': createdAt.toUtc().toIso8601String(),
+      'senha': 'Senha@123', // Default password for new users
+      'escolaInstituicao': category,
+      'role': ApiClient.mapRoleToBackend(role),
     };
   }
 }
@@ -127,22 +136,35 @@ class _UsersPageState extends State<UsersPage> {
     });
 
     try {
-      var query = supabase.from('profiles').select();
-      if (GlobalState.userRole == 'Tutor') {
-        query = query.eq('tutor', GlobalState.userName ?? '');
-      }
-      final rawUsers = await query.order('created_at', ascending: false);
+      final rawUsers = await ApiClient.listUsers();
       if (!mounted) return;
+
+      List<UserProfile> allUsers = rawUsers
+          .map((item) => UserProfile.fromJson(item as Map<String, dynamic>))
+          .toList();
+
+      // If user is Tutor, filter to show only their tutorandas
+      if (GlobalState.userRole == 'Tutor') {
+        allUsers = allUsers.where((u) => u.tutor == GlobalState.userName).toList();
+      }
+
+      // Sort by created date descending
+      allUsers.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
       setState(() {
-        users = (rawUsers as List<dynamic>)
-            .map((item) => UserProfile.fromJson(item as Map<String, dynamic>))
-            .toList();
+        users = allUsers;
         _isLoadingUsers = false;
       });
-    } on PostgrestException catch (error) {
+    } on ApiException catch (error) {
       if (!mounted) return;
       setState(() {
         _userError = error.message;
+        _isLoadingUsers = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _userError = error.toString();
         _isLoadingUsers = false;
       });
     }
@@ -150,13 +172,9 @@ class _UsersPageState extends State<UsersPage> {
 
   Future<void> _saveUser(UserProfile user) async {
     try {
-      final userData = user.toJson();
-      if (user.id == null || user.id!.isEmpty) {
-        userData.remove('id');
-      }
-      await supabase.from('profiles').insert(userData);
+      await ApiClient.createUser(user.toBackendJson());
       await _loadUsers();
-    } on PostgrestException catch (error) {
+    } on ApiException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erro ao salvar usuário: ${error.message}')),
@@ -164,7 +182,7 @@ class _UsersPageState extends State<UsersPage> {
     }
   }
 
-  Future<void> _deleteUser(String? id) async {
+  Future<void> _deleteUser(dynamic id) async {
     if (id == null) return;
     final confirm = await showDialog<bool>(
       context: context,
@@ -180,9 +198,9 @@ class _UsersPageState extends State<UsersPage> {
     if (confirm != true) return;
 
     try {
-      await supabase.from('profiles').delete().eq('id', id);
+      await ApiClient.deleteUser(id);
       await _loadUsers();
-    } on PostgrestException catch (error) {
+    } on ApiException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erro ao excluir usuário: ${error.message}')),
@@ -192,13 +210,21 @@ class _UsersPageState extends State<UsersPage> {
 
   Future<void> _updateUser(UserProfile user) async {
     try {
-      final userData = user.toJson();
-      if (user.id == null || user.id!.isEmpty) {
-        userData.remove('id');
+      // For role changes, use the specific role endpoint
+      final backendRole = ApiClient.mapRoleToBackend(user.role);
+      await ApiClient.changeUserRole(user.id, backendRole);
+
+      // If tutoranda, bind to tutor
+      if (user.role == 'Tutoranda' && user.tutor != null) {
+        // Find tutor ID from users list
+        final tutorUser = users.where((u) => u.name == user.tutor && u.role == 'Tutor').firstOrNull;
+        if (tutorUser != null) {
+          await ApiClient.bindTutoranda(user.id, tutorUser.id);
+        }
       }
-      await supabase.from('profiles').upsert(userData);
+
       await _loadUsers();
-    } on PostgrestException catch (error) {
+    } on ApiException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erro ao atualizar usuário: ${error.message}')),
@@ -634,7 +660,7 @@ class _AddEditUserDialogState extends State<_AddEditUserDialog> {
     }
 
     final updatedUser = UserProfile(
-      id: widget.user?.id ?? null,
+      id: widget.user?.id,
       name: nameController.text.trim(),
       email: emailController.text.trim(),
       category: null,

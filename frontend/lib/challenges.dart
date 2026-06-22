@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'NavBar.dart';
-import 'supabase_client.dart';
 import 'global_state.dart';
 
 class Challenge {
@@ -157,8 +156,7 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
   }
 
   Future<void> _checkAuth() async {
-    final session = supabase.auth.currentSession;
-    if (session == null) {
+    if (!GlobalState.isLoggedIn) {
       if (mounted) {
         Navigator.pushReplacementNamed(context, '/login');
       }

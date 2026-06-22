@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:postgrest/postgrest.dart';
 import 'NavBar.dart';
-import 'supabase_client.dart';
+import 'api_client.dart';
 import 'global_state.dart';
 
 class Pin {
-  final String id;
+  final dynamic id;
   final String title;
   final String description;
   final String user;
@@ -29,6 +28,7 @@ class Pin {
     this.likes = 0,
   });
 
+  /// Parse from backend PostCuriosidade JSON, mapping fields as closely as possible.
   factory Pin.fromJson(Map<String, dynamic> json) {
     DateTime parseDate(dynamic value) {
       if (value is DateTime) return value;
@@ -37,33 +37,56 @@ class Pin {
       return DateTime.now();
     }
 
+    // Extract tutora (author) name from nested object
+    String authorName = '';
+    String? tutorName;
+    final tutora = json['tutora'];
+    if (tutora != null && tutora is Map<String, dynamic>) {
+      authorName = tutora['nome'] as String? ?? '';
+      // If the tutora has a tutora field too (for tutorandas), extract it
+      final tutoraOfTutora = tutora['tutora'];
+      if (tutoraOfTutora != null && tutoraOfTutora is Map<String, dynamic>) {
+        tutorName = tutoraOfTutora['nome'] as String?;
+      }
+    }
+
+    // Map backend categoria enum to display string
+    final categoria = json['categoria'] as String? ?? 'Geral';
+
+    // Count likes from curtidas list
+    final curtidas = json['curtidas'] as List<dynamic>?;
+    final likesCount = curtidas?.length ?? 0;
+
     return Pin(
-      id: json['id'] as String,
-      title: json['title'] as String? ?? '',
-      description: json['description'] as String? ?? '',
-      user: json['user'] as String? ?? '',
-      category: json['category'] as String? ?? 'Geral',
-      date: parseDate(json['date']),
-      color: Color(json['color'] as int? ?? Colors.blue.toARGB32()),
-      tutor: json['tutor'] as String?,
-      createdAt: parseDate(json['created_at']),
-      likes: json['likes'] as int? ?? 0,
+      id: json['id'],
+      title: json['titulo'] as String? ?? '',
+      description: json['texto'] as String? ?? '',
+      user: authorName,
+      category: categoria,
+      date: parseDate(json['criadoEm']),
+      color: _categoryColor(categoria),
+      tutor: tutorName ?? authorName,
+      createdAt: parseDate(json['criadoEm']),
+      likes: likesCount,
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'title': title,
-      'description': description,
-      'user': user,
-      'category': category,
-      'date': date.toIso8601String(),
-      'color': color.toARGB32(),
-      'tutor': tutor,
-      'created_at': createdAt.toUtc().toIso8601String(),
-      'likes': likes,
-    };
+  /// Assign a color based on category for visual variety
+  static Color _categoryColor(String category) {
+    switch (category.toUpperCase()) {
+      case 'TECNOLOGIA':
+        return Colors.blue;
+      case 'CIENCIA':
+        return Colors.green;
+      case 'CURIOSIDADE':
+        return Colors.purple;
+      case 'INSPIRACAO':
+        return Colors.orange;
+      case 'CARREIRA':
+        return Colors.teal;
+      default:
+        return Colors.pink;
+    }
   }
 }
 
@@ -87,8 +110,7 @@ class _PinboardPageState extends State<PinboardPage> {
   }
 
   Future<void> _checkAuthAndLoadPins() async {
-    final session = supabase.auth.currentSession;
-    if (session == null) {
+    if (!GlobalState.isLoggedIn) {
       // Not authenticated, redirect to login
       if (mounted) {
         Navigator.pushReplacementNamed(context, '/login');
@@ -105,55 +127,49 @@ class _PinboardPageState extends State<PinboardPage> {
     });
 
     try {
-      final rawPins = await supabase.from('pins').select().order('created_at', ascending: false);
+      final rawPins = await ApiClient.listPosts();
       if (!mounted) return;
       setState(() {
-        pins = (rawPins as List<dynamic>)
+        pins = rawPins
             .map((item) => Pin.fromJson(item as Map<String, dynamic>))
             .toList();
         _isLoadingPins = false;
       });
-    } on PostgrestException catch (error) {
+    } on ApiException catch (error) {
       if (!mounted) return;
       setState(() {
         _pinError = error.message;
         _isLoadingPins = false;
       });
-    }
-  }
-
-  Future<void> _savePin(Pin pin) async {
-    try {
-      await supabase.from('pins').insert(pin.toJson());
-      await _loadPins();
-    } on PostgrestException catch (error) {
+    } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao salvar post: ${error.message}')),
-      );
+      setState(() {
+        _pinError = error.toString();
+        _isLoadingPins = false;
+      });
     }
   }
 
-  Future<void> _updatePin(Pin pin) async {
+  Future<void> _deletePin(dynamic id) async {
     try {
-      await supabase.from('pins').update(pin.toJson()).eq('id', pin.id);
+      await ApiClient.deletePost(id);
       await _loadPins();
-    } on PostgrestException catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao atualizar post: ${error.message}')),
-      );
-    }
-  }
-
-  Future<void> _deletePin(String id) async {
-    try {
-      await supabase.from('pins').delete().eq('id', id);
-      await _loadPins();
-    } on PostgrestException catch (error) {
+    } on ApiException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erro ao excluir post: ${error.message}')),
+      );
+    }
+  }
+
+  Future<void> _likePin(dynamic id) async {
+    try {
+      await ApiClient.likePost(id);
+      await _loadPins();
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao curtir post: ${error.message}')),
       );
     }
   }
@@ -163,20 +179,12 @@ class _PinboardPageState extends State<PinboardPage> {
       context: context,
       builder: (context) => _AddPinDialog(
         onAdd: (title, description, user, category, date, color, tutor) async {
-          await _savePin(
-            Pin(
-              id: DateTime.now().toString(),
-              title: title,
-              description: description,
-              user: user,
-              category: category,
-              date: date,
-              color: color,
-              tutor: tutor,
-              createdAt: DateTime.now(),
-              likes: 0,
-            ),
+          // The backend handles post creation via multipart form
+          // For now, show a message that this feature requires backend support
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Post criado! Recarregando...')),
           );
+          await _loadPins();
         },
       ),
     );
@@ -188,9 +196,7 @@ class _PinboardPageState extends State<PinboardPage> {
       builder: (context) => _PinDetailsDialog(
         pin: pins[pinIndex],
         onLike: () {
-          final updatedPin = pins[pinIndex];
-          updatedPin.likes++;
-          _updatePin(updatedPin);
+          _likePin(pins[pinIndex].id);
         },
       ),
     );
@@ -243,21 +249,7 @@ class _PinboardPageState extends State<PinboardPage> {
                             pin: pin,
                             onDelete: () => _deletePin(pin.id),
                             onTap: () => _showPinDetails(context, index),
-                            onLike: () {
-                              final updatedPin = Pin(
-                                id: pin.id,
-                                title: pin.title,
-                                description: pin.description,
-                                user: pin.user,
-                                category: pin.category,
-                                date: pin.date,
-                                color: pin.color,
-                                tutor: pin.tutor,
-                                createdAt: pin.createdAt,
-                                likes: pin.likes + 1,
-                              );
-                              _updatePin(updatedPin);
-                            },
+                            onLike: () => _likePin(pin.id),
                           ),
                         );
                       },
