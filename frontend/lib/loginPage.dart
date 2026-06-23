@@ -15,91 +15,96 @@ class _LoginPageState extends State<LoginPage> {
   bool _isLoading = false;
 
   Future<void> _signIn() async {
-  final email = _emailController.text.trim();
-  final password = _passwordController.text;
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
 
-  if (email.isEmpty || password.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Preencha email e senha para continuar.')),
-    );
-    return;
-  }
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Preencha email e senha para continuar.')),
+      );
+      return;
+    }
 
-  setState(() {
-    _isLoading = true;
-  });
+    setState(() {
+      _isLoading = true;
+    });
 
-  try {
-    final response = await ApiClient.login(email, password);
-
-    if (!mounted) return;
-
-    final token = response['token'] as String?;
-    if (token != null) {
-      final backendRole = response['role'] as String? ?? '';
-      final role = ApiClient.mapRoleFromBackend(backendRole);
-      final name = response['nome'] as String?;
-
-      const allowedRoles = ['admin', 'Tutor', 'Tutoranda'];
-      if (!allowedRoles.contains(role)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Acesso negado. Usuário não possui permissão para acessar o aplicativo.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-
-      // Store session in global state
-      GlobalState.authToken = token;
-      GlobalState.userEmail = email;
-      GlobalState.userRole = role;
-      GlobalState.userName = name;
-
-      // Try to fetch tutor name from profile
-      try {
-        final profile = await ApiClient.getProfile();
-        final tutora = profile['tutora'];
-        if (tutora != null && tutora is Map<String, dynamic>) {
-          GlobalState.tutorName = tutora['nome'] as String?;
-        }
-      } catch (_) {
-        // Ignore errors fetching profile details
-      }
+    try {
+      final response = await ApiClient.login(email, password);
 
       if (!mounted) return;
 
+      final token = response['token'] as String?;
+      if (token != null) {
+        final backendRole = response['role'] as String? ?? '';
+        final role = ApiClient.mapRoleFromBackend(backendRole);
+        final name = response['nome'] as String?;
+
+        const allowedRoles = ['admin', 'Tutor', 'Tutoranda'];
+        if (!allowedRoles.contains(role)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Acesso negado. Usuário não possui permissão para acessar o aplicativo.',
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+
+        // Store session in global state
+        GlobalState.authToken = token;
+        GlobalState.userEmail = email;
+        GlobalState.userRole = role;
+        GlobalState.userName = name;
+
+        // Try to fetch tutor name from profile
+        try {
+          final profile = await ApiClient.getProfile();
+          final tutora = profile['tutora'];
+          if (tutora != null && tutora is Map<String, dynamic>) {
+            GlobalState.tutorName = tutora['nome'] as String?;
+          }
+        } catch (_) {
+          // Ignore errors fetching profile details
+        }
+
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Bem-vinda, $role! Login realizado com sucesso.'),
+          ),
+        );
+        Navigator.pushReplacementNamed(context, '/home');
+      }
+    } on ApiException catch (error) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Bem-vinda, $role! Login realizado com sucesso.')),
+        SnackBar(content: Text(error.message), backgroundColor: Colors.red),
       );
-      Navigator.pushReplacementNamed(context, '/home');
-    }
-  } on ApiException catch (error) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(error.message), backgroundColor: Colors.red),
-    );
-  } catch (error) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Ocorreu um erro inesperado: $error'), backgroundColor: Colors.red),
-    );
-  } finally {
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ocorreu um erro inesperado: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
-}
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Entrar'),
-      ),
+      appBar: AppBar(title: const Text('Entrar')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -107,10 +112,7 @@ class _LoginPageState extends State<LoginPage> {
           children: [
             Column(
               children: [
-                Image.asset(
-                  'images/logo-sem-fundo.png',
-                  height: 100,
-                ),
+                Image.asset('images/logo-sem-fundo.png', height: 100),
                 const SizedBox(height: 24),
               ],
             ),

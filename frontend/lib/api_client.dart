@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'global_state.dart';
@@ -6,6 +7,9 @@ import 'global_state.dart';
 /// Replaces the old Supabase client with REST API calls.
 class ApiClient {
   static const String baseUrl = 'https://app-meninas-digitais-1.onrender.com';
+
+  /// Timeout for HTTP requests (Render free tier can take 30-50s to cold start).
+  static const Duration _timeout = Duration(seconds: 60);
 
   /// Standard headers including JWT auth token when available.
   static Map<String, String> get _headers {
@@ -22,54 +26,89 @@ class ApiClient {
   // ─── Generic HTTP Helpers ──────────────────────────────────────────────
 
   static Future<dynamic> get(String path) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl$path'),
-      headers: _headers,
-    );
-    _checkResponse(response);
-    if (response.body.isEmpty) return null;
-    return jsonDecode(response.body);
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl$path'),
+        headers: _headers,
+      ).timeout(_timeout);
+      _checkResponse(response);
+      if (response.body.isEmpty) return null;
+      return jsonDecode(response.body);
+    } on TimeoutException {
+      throw ApiException(
+        'O servidor demorou muito para responder. Ele pode estar iniciando (cold start). Tente novamente em alguns segundos.',
+        408,
+      );
+    }
   }
 
   static Future<dynamic> post(String path, {Map<String, dynamic>? body}) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl$path'),
-      headers: _headers,
-      body: body != null ? jsonEncode(body) : null,
-    );
-    _checkResponse(response);
-    if (response.body.isEmpty) return null;
-    return jsonDecode(response.body);
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl$path'),
+        headers: _headers,
+        body: body != null ? jsonEncode(body) : null,
+      ).timeout(_timeout);
+      _checkResponse(response);
+      if (response.body.isEmpty) return null;
+      return jsonDecode(response.body);
+    } on TimeoutException {
+      throw ApiException(
+        'O servidor demorou muito para responder. Ele pode estar iniciando (cold start). Tente novamente em alguns segundos.',
+        408,
+      );
+    }
   }
 
   static Future<dynamic> patch(String path, {Map<String, dynamic>? body}) async {
-    final response = await http.patch(
-      Uri.parse('$baseUrl$path'),
-      headers: _headers,
-      body: body != null ? jsonEncode(body) : null,
-    );
-    _checkResponse(response);
-    if (response.body.isEmpty) return null;
-    return jsonDecode(response.body);
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl$path'),
+        headers: _headers,
+        body: body != null ? jsonEncode(body) : null,
+      ).timeout(_timeout);
+      _checkResponse(response);
+      if (response.body.isEmpty) return null;
+      return jsonDecode(response.body);
+    } on TimeoutException {
+      throw ApiException(
+        'O servidor demorou muito para responder. Ele pode estar iniciando (cold start). Tente novamente em alguns segundos.',
+        408,
+      );
+    }
   }
 
   static Future<dynamic> put(String path, {Map<String, dynamic>? body}) async {
-    final response = await http.put(
-      Uri.parse('$baseUrl$path'),
-      headers: _headers,
-      body: body != null ? jsonEncode(body) : null,
-    );
-    _checkResponse(response);
-    if (response.body.isEmpty) return null;
-    return jsonDecode(response.body);
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl$path'),
+        headers: _headers,
+        body: body != null ? jsonEncode(body) : null,
+      ).timeout(_timeout);
+      _checkResponse(response);
+      if (response.body.isEmpty) return null;
+      return jsonDecode(response.body);
+    } on TimeoutException {
+      throw ApiException(
+        'O servidor demorou muito para responder. Ele pode estar iniciando (cold start). Tente novamente em alguns segundos.',
+        408,
+      );
+    }
   }
 
   static Future<void> delete(String path) async {
-    final response = await http.delete(
-      Uri.parse('$baseUrl$path'),
-      headers: _headers,
-    );
-    _checkResponse(response);
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl$path'),
+        headers: _headers,
+      ).timeout(_timeout);
+      _checkResponse(response);
+    } on TimeoutException {
+      throw ApiException(
+        'O servidor demorou muito para responder. Ele pode estar iniciando (cold start). Tente novamente em alguns segundos.',
+        408,
+      );
+    }
   }
 
   static void _checkResponse(http.Response response) {
