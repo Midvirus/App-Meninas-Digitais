@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'loginPage.dart';
 import 'homePage.dart';
@@ -7,17 +8,29 @@ import 'users.dart';
 import 'feedback_page.dart';
 import 'notifications_page.dart';
 import 'project_data_page.dart';
-import 'supabase_client.dart';
 import 'global_state.dart';
+import 'api_client.dart';
 
 void main() {
   runApp(const MyApp());
 }
 
+String _normalizeRole(String role) {
+  switch (role.toUpperCase()) {
+    case 'TUTORA':
+      return 'Tutor';
+    case 'TUTORANDA':
+      return 'Tutoranda';
+    case 'ADMIN':
+      return 'Admin';
+    default:
+      return role;
+  }
+}
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // Este widget é a raiz da sua aplicação.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -57,30 +70,25 @@ class _AuthWrapperState extends State<AuthWrapper> {
   }
 
   Future<void> _checkAuthState() async {
-    final session = supabase.auth.currentSession;
-    if (session != null) {
-      try {
-        final profile = await supabase
-            .from('profiles')
-            .select('role, name, tutor')
-            .eq('email', session.user.email ?? '')
-            .maybeSingle();
-        if (profile != null) {
-          GlobalState.userRole = profile['role'] as String?;
-          GlobalState.userName = profile['name'] as String?;
-          GlobalState.tutorName = profile['tutor'] as String?;
-        }
-      } catch (e) {
-        // ignore errors on startup
+    try {
+      final response = await ApiClient.get('/api/perfil');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        GlobalState.userRole = _normalizeRole(data['role'] as String? ?? '');
+        GlobalState.userName = data['nome'] as String?;
+        GlobalState.userEmail = data['email'] as String?;
+        final tutora = data['tutora'] as Map<String, dynamic>?;
+        GlobalState.tutorName = tutora?['nome'] as String?;
+      } else {
+        await ApiClient.logout();
+        GlobalState.clear();
       }
-    } else {
+    } catch (_) {
       GlobalState.clear();
     }
-    
+
     if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() { _isLoading = false; });
     }
   }
 
@@ -88,13 +96,10 @@ class _AuthWrapperState extends State<AuthWrapper> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
+        body: Center(child: CircularProgressIndicator()),
       );
     }
 
-    // A página inicial é sempre a Home, independente do login.
     return const MyHomePage(title: 'Meninas Digitais');
   }
 }

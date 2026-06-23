@@ -29,6 +29,11 @@ class AuthController {
     public ResponseEntity<Map<String, String>> login(@Valid @RequestBody LoginRequest req) {
         return ResponseEntity.ok(usuarioService.login(req));
     }
+
+    @PostMapping("/cadastrar")
+    public ResponseEntity<Usuario> cadastrar(@Valid @RequestBody CadastroUsuarioRequest req) {
+        return ResponseEntity.ok(usuarioService.cadastrar(req));
+    }
 }
 
 //Usuários (Admin)
@@ -71,6 +76,23 @@ class AdminUsuarioController {
     public ResponseEntity<Void> vincular(@PathVariable Long tutorandaId, @PathVariable Long tutoraId) {
         usuarioService.vincularTutoranda(tutorandaId, tutoraId);
         return ResponseEntity.ok().build();
+    }
+}
+
+//Tutora
+
+@RestController
+@RequestMapping("/api/tutora")
+@RequiredArgsConstructor
+@PreAuthorize("hasRole('TUTORA')")
+class TutoraController {
+
+    private final UsuarioService usuarioService;
+
+    // RF03 - listar tutorandas da tutora logada
+    @GetMapping("/tutorandas")
+    public ResponseEntity<List<Usuario>> minhasTutorandas(@AuthenticationPrincipal Usuario usuario) {
+        return ResponseEntity.ok(usuarioService.listarTutorandas(usuario.getId()));
     }
 }
 
