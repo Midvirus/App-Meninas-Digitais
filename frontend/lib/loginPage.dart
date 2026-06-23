@@ -40,8 +40,8 @@ class _LoginPageState extends State<LoginPage> {
         final role = ApiClient.mapRoleFromBackend(backendRole);
         final name = response['nome'] as String?;
 
-        const allowedRoles = ['admin', 'Tutor', 'Tutoranda'];
-        if (!allowedRoles.contains(role)) {
+        const allowedRoles = ['admin', 'tutor', 'tutoranda'];
+        if (!allowedRoles.contains(role.toLowerCase())) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
@@ -69,6 +69,8 @@ class _LoginPageState extends State<LoginPage> {
         } catch (_) {
           // Ignore errors fetching profile details
         }
+
+        await GlobalState.saveSession();
 
         if (!mounted) return;
 

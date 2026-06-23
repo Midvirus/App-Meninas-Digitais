@@ -10,7 +10,9 @@ import 'project_data_page.dart';
 import 'api_client.dart';
 import 'global_state.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await GlobalState.loadSession();
   runApp(const MyApp());
 }
 
