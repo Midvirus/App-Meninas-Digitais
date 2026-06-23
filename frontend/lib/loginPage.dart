@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase/supabase.dart';
 import 'supabase_client.dart';
+import 'global_state.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -43,23 +44,31 @@ class _LoginPageState extends State<LoginPage> {
       try {
         final userProfile = await supabase
             .from('profiles')
-            .select('role')
+            .select('role, name, tutor')
             .eq('email', email)
             .maybeSingle();
 
-        if (userProfile == null || userProfile['role'] != 'admin') {
+        const allowedRoles = ['admin', 'Tutor', 'Tutoranda'];
+        if (userProfile == null || !allowedRoles.contains(userProfile['role'])) {
           await supabase.auth.signOut();
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Acesso negado. Apenas administradores podem fazer login.'),
+              content: Text('Acesso negado. Usuário não possui permissão para acessar o aplicativo.'),
               backgroundColor: Colors.red,
             ),
           );
           return;
         }
 
+        final role = userProfile['role'] as String;
+        final name = userProfile['name'] as String?;
+        final tutor = userProfile['tutor'] as String?;
+        GlobalState.userRole = role;
+        GlobalState.userName = name;
+        GlobalState.tutorName = tutor;
+        
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Login realizado com sucesso!')),
+          SnackBar(content: Text('Bem-vinda, $role! Login realizado com sucesso.')),
         );
         Navigator.pushReplacementNamed(context, '/home');
       } on PostgrestException catch (error) {

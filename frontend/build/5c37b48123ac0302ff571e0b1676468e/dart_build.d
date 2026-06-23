@@ -1,0 +1,1 @@
+ C:\\Flutter\\Meninas\ Digitais\\PROJETO\\frontend\\build\\5c37b48123ac0302ff571e0b1676468e\\dart_build_result.json: 

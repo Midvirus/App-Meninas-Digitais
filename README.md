@@ -1,39 +1,136 @@
-# App Meninas Digitais 🚀
+# 🚀 App Meninas Digitais
 
-O **App Meninas Digitais** é uma aplicação multiplataforma desenvolvida com Flutter, focada no incentivo e na inclusão de mulheres no universo da tecnologia. O projeto oferece uma interface amigável para acesso a conteúdos, networking e murais de avisos.
+
+O **App Meninas Digitais** é uma aplicação Full Stack desenvolvida com foco no fortalecimento da presença feminina na área da tecnologia.  
+O projeto reúne um aplicativo multiplataforma em Flutter e uma API REST robusta em Spring Boot, proporcionando uma experiência moderna, segura e escalável.
+
+---
 
 ## 🌐 Demonstração Online
-O projeto está publicado e pode ser acessado via navegador através do link abaixo:
-👉 **[https://midvirus.github.io/app-meninas-digitais/](https://midvirus.github.io/App-Meninas-Digitais/)**
+
+🔗 Acesse a demonstração:  
+https://midvirus.github.io/App-Meninas-Digitais/
+
+### 🔑 Acesso para Teste
+- **E-mail:** `testeAMDig@gmail.com`
+- **Senha:** `12345`
+
+---
+# Video de Execulção do projeto
+[Video de como execultar o programa](https://drive.google.com/drive/folders/1K6p9C9GPt0hRtWzt8rWcga_15YD9NS3j)
+
+# 📁 Estrutura do Projeto
+
+```bash
+App-Meninas-Digitais/
+│
+├── frontend/
+│   └── Aplicativo Flutter multiplataforma responsável pela interface do usuário,
+│       navegação, integração com Supabase e funcionalidades do app.
+│
+└── backend/
+    └── API REST desenvolvida com Spring Boot, responsável pela autenticação,
+            regras de negócio, persistência de dados e documentação Swagger.
+```
 
 ---
 
-## 📝 Sobre o Projeto
-Este aplicativo foi construído para servir como um hub de informações do programa Meninas Digitais. Ele integra funcionalidades essenciais para a comunidade, permitindo que as usuárias se mantenham informadas e conectadas.
+# 🛠️ Tecnologias Utilizadas
 
-### Funcionalidades:
-- **Autenticação:** Tela de login customizada para segurança das usuárias.
-- **Pinboard:** Mural interativo (`pinboard.dart`) para visualização de posts e avisos importantes.
-- **Navegação Fluida:** Barra de navegação inferior (`NavBar.dart`) para acesso rápido às seções.
-- **Design Responsivo:** Adaptado para Web, Android, iOS e Desktop.
+## 🎨 Frontend
+- Flutter
+- Dart
+- Supabase
+- Font Awesome Flutter
+- URL Launcher
 
-## 🛠️ Tecnologias Utilizadas
-- [Flutter](https://flutter.dev) - Framework UI.
-- [Dart](https://dart.dev) - Linguagem de programação.
-- [GitHub Pages](https://pages.github.com) - Hospedagem da versão Web.
+## ⚙️ Backend
+- Java 21
+- Spring Boot 3
+- Maven
+- PostgreSQL
+- Spring Security
+- JWT Authentication
+- Swagger/OpenAPI
 
 ---
 
-## 📂 Estrutura de Pastas
-Abaixo, os principais arquivos da lógica do app:
-- `lib/main.dart`: Ponto de entrada do aplicativo.
-- `lib/homePage.dart`: Dashboard principal.
-- `lib/loginPage.dart`: Interface de acesso.
-- `lib/pinboard.dart`: Mural de interações.
-- `lib/NavBar.dart`: Componente de navegação.
+# 📥 Clonando o Repositório
 
-## 🚀 Como rodar o projeto localmente
+```bash
+git clone https://github.com/MidVirus/app-meninas-digitais.git
+```
 
-1. **Clone o repositório:**
-   ```bash
-   git clone [https://github.com/midvirus/app-meninas-digitais.git](https://github.com/midvirus/app-meninas-digitais.git)
+---
+
+# ⚙️ Configuração do Backend
+
+## ✅ Pré-requisitos
+Antes de executar o backend, certifique-se de possuir instalado:
+
+- JDK 21
+- Maven
+- PostgreSQL
+
+## ▶️ Executando o Backend
+
+Acesse a pasta do projeto backend:
+
+```bash
+cd backend/meninas-digitais-backend
+```
+
+Execute a aplicação Spring Boot:
+
+```bash
+./mvnw spring-boot:run
+```
+
+Ou no Windows:
+
+```bash
+mvnw spring-boot:run
+```
+
+---
+
+# 📱 Configuração do Frontend
+
+## ✅ Pré-requisitos
+
+Para instalar o Flutter corretamente em seu ambiente, siga a documentação oficial:
+
+🔗 https://docs.flutter.dev/get-started/install
+
+## ▶️ Executando o Frontend
+
+Acesse a pasta do frontend:
+
+```bash
+cd frontend
+```
+
+Instale as dependências:
+
+```bash
+flutter pub get
+```
+
+Execute o aplicativo:
+
+```bash
+flutter run
+```
+
+---
+
+# 🔐 Segurança e Autenticação
+
+O backend utiliza:
+
+- Spring Security
+- Autenticação via JWT
+- Controle de acesso baseado em tokens
+- Proteção de endpoints REST
+
+---

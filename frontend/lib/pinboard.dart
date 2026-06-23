@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:postgrest/postgrest.dart';
 import 'NavBar.dart';
 import 'supabase_client.dart';
+import 'global_state.dart';
 
 class Pin {
   final String id;
@@ -261,11 +262,13 @@ class _PinboardPageState extends State<PinboardPage> {
                         );
                       },
                     ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _addPin,
-        tooltip: 'Adicionar Post',
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: GlobalState.userRole != 'Tutoranda'
+          ? FloatingActionButton(
+              onPressed: _addPin,
+              tooltip: 'Adicionar Post',
+              child: const Icon(Icons.add),
+            )
+          : null,
     );
   }
 }
@@ -432,18 +435,19 @@ class _PinCard extends StatelessWidget {
                             ),
                           ),
                                                     // Linha 1: botão apagar (no topo)
-                          InkWell(
-                            onTap: onDelete,
-                            borderRadius: BorderRadius.circular(999),
-                            child: const Padding(
-                              padding: EdgeInsets.all(2), // controle fino da área de toque
-                              child: Icon(
-                                Icons.delete,
-                                color: Colors.white,
-                                size: 16,
+                          if (GlobalState.userRole != 'Tutoranda')
+                            InkWell(
+                              onTap: onDelete,
+                              borderRadius: BorderRadius.circular(999),
+                              child: const Padding(
+                                padding: EdgeInsets.all(2), // controle fino da área de toque
+                                child: Icon(
+                                  Icons.delete,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
                               ),
                             ),
-                          ),
                         ],
                       ),
                     ),

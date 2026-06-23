@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'supabase_client.dart';
+import 'global_state.dart';
 
 class NavBar {
   static Drawer buildDrawer(BuildContext context) {
@@ -11,7 +12,7 @@ class NavBar {
         padding: EdgeInsets.zero,
         children: [
           UserAccountsDrawerHeader(
-            accountName: Text(isLoggedIn ? 'Administrador' : 'Usuário'),
+            accountName: Text(isLoggedIn ? GlobalState.userName ?? GlobalState.userRole ?? 'Usuário' : 'Usuário'),
             accountEmail: Text(isLoggedIn ? session.user.email ?? '' : 'Não logado'),
             currentAccountPicture: CircleAvatar(
               backgroundColor: Colors.white,
@@ -55,14 +56,42 @@ class NavBar {
                 Navigator.pushNamed(context, '/challenges');
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.group),
-              title: const Text('Usuários'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, '/users');
-              },
-            ),
+            if (GlobalState.userRole == 'Tutoranda')
+              ListTile(
+                leading: const Icon(Icons.notifications),
+                title: const Text('Notificações'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/notifications');
+                },
+              ),
+            if (GlobalState.userRole == 'Tutor')
+              ListTile(
+                leading: const Icon(Icons.rate_review),
+                title: const Text('Feedback'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/feedback');
+                },
+              ),
+            if (GlobalState.userRole != 'Tutoranda')
+              ListTile(
+                leading: const Icon(Icons.group),
+                title: const Text('Usuários'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/users');
+                },
+              ),
+            if (GlobalState.userRole == 'admin')
+              ListTile(
+                leading: const Icon(Icons.bar_chart),
+                title: const Text('Dados do Projeto'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/project-data');
+                },
+              ),
             const Divider(),
             ListTile(
               leading: const Icon(Icons.logout),
@@ -70,6 +99,7 @@ class NavBar {
               onTap: () async {
                 Navigator.pop(context);
                 await supabase.auth.signOut();
+                GlobalState.clear();
                 Navigator.pushReplacementNamed(context, '/home');
               },
             ),
