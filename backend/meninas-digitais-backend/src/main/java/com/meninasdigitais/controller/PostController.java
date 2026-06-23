@@ -42,10 +42,17 @@ class PostController {
     @PostMapping
     @PreAuthorize("hasRole('TUTORA')")
     public ResponseEntity<PostCuriosidade> publicar(
-            @Valid @RequestPart CriarPostRequest dados,
+            @RequestBody CriarPostRequest dados,
+            @AuthenticationPrincipal Usuario tutora) {
+        return ResponseEntity.ok(postService.publicar(dados, tutora, null));
+    }
+
+    @PostMapping(value = "/com-imagem", consumes = "multipart/form-data")
+    @PreAuthorize("hasRole('TUTORA')")
+    public ResponseEntity<PostCuriosidade> publicarComImagem(
+            @RequestPart CriarPostRequest dados,
             @RequestPart(required = false) MultipartFile imagem,
             @AuthenticationPrincipal Usuario tutora) {
-
         String imagemUrl = imagem != null ? "uploads/posts/" + imagem.getOriginalFilename() : null;
         return ResponseEntity.ok(postService.publicar(dados, tutora, imagemUrl));
     }

@@ -25,7 +25,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/tutora/desafios")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('TUTORA')")
 class DesafioTutoraController {
 
     private final DesafioService desafioService;
@@ -69,7 +68,6 @@ class DesafioTutoraController {
 @RestController
 @RequestMapping("/api/tutoranda/desafios")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('TUTORANDA')")
 class DesafioTutorandaController {
 
     private final DesafioService desafioService;

@@ -72,6 +72,14 @@ class AdminUsuarioController {
         usuarioService.vincularTutoranda(tutorandaId, tutoraId);
         return ResponseEntity.ok().build();
     }
+
+    @PatchMapping("/{tutorandaId}/autorizacao")
+    public ResponseEntity<Void> registrarAutorizacao(
+            @PathVariable Long tutorandaId,
+            @RequestParam boolean autorizado) {
+        usuarioService.registrarAutorizacao(tutorandaId, autorizado);
+        return ResponseEntity.ok().build();
+    }
 }
 
 //Perfil (usuário autenticado)
