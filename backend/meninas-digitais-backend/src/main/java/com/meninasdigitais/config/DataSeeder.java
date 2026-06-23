@@ -34,8 +34,8 @@ public class DataSeeder implements CommandLineRunner {
         } else {
             System.out.println("Banco de dados já contém usuários. Nenhuma ação de seeding necessária.");
         }
-        if (usuarioRepository.findByEmail("admin@gmail.com").isEmpty()) {
-            System.out.println("Criando usuário admin@gmail.com...");
+        if (usuarioRepository.findByEmail("uila@gmail.com").isEmpty()) {
+            System.out.println("Criando usuário uila@gmail.com...");
             
             Usuario adminSolicitado = Usuario.builder()
                     .nome("uila")
@@ -46,7 +46,7 @@ public class DataSeeder implements CommandLineRunner {
                     .build();
             
             usuarioRepository.save(adminSolicitado);
-            System.out.println("Usuário Admin criado! E-mail: admin@gmail.com | Senha: 12345");
+            System.out.println("Usuário Admin criado! E-mail: uila@gmail.com | Senha: 12345");
         }
     }
 }
