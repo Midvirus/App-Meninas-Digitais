@@ -29,6 +29,11 @@ class AuthController {
     public ResponseEntity<Map<String, String>> login(@Valid @RequestBody LoginRequest req) {
         return ResponseEntity.ok(usuarioService.login(req));
     }
+    @ExceptionHandler(org.springframework.security.core.AuthenticationException.class)
+    public ResponseEntity<Map<String, String>> handleAuthError(org.springframework.security.core.AuthenticationException ex) {
+        return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED)
+                .body(Map.of("message", "Email ou senha incorretos."));
+    }
 }
 
 //Usuários (Admin)
