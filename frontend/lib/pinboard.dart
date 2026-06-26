@@ -179,12 +179,42 @@ class _PinboardPageState extends State<PinboardPage> {
       context: context,
       builder: (context) => _AddPinDialog(
         onAdd: (title, description, user, category, date, color, tutor) async {
-          // The backend handles post creation via multipart form
-          // For now, show a message that this feature requires backend support
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Post criado! Recarregando...')),
-          );
-          await _loadPins();
+          try {
+            // Map category to match backend Enum where possible
+            String backendCategory = 'GERAL';
+            final catUpper = category.toUpperCase();
+            if (catUpper.contains('MULHER') || catUpper.contains('CIÊNCIA') || catUpper.contains('CIENCIA')) {
+              backendCategory = 'MULHERES_NA_CIENCIA';
+            } else if (catUpper.contains('CARREIRA')) {
+              backendCategory = 'CARREIRA';
+            } else if (catUpper.contains('PROGRAMA')) {
+              backendCategory = 'PROGRAMACAO';
+            } else {
+              backendCategory = 'TECNOLOGIA'; // Default fallback
+            }
+
+            await ApiClient.publicar({
+              'titulo': title,
+              'texto': description,
+              'categoria': backendCategory,
+            });
+            
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Post criado com sucesso!')),
+            );
+            await _loadPins();
+          } on ApiException catch (error) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Erro ao criar post: ${error.message}')),
+            );
+          } catch (error) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Erro inesperado: $error')),
+            );
+          }
         },
       ),
     );

@@ -57,6 +57,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
   }
 
   Future<void> _checkAuthState() async {
+    await GlobalState.loadToken();
+
     if (GlobalState.isLoggedIn) {
       try {
         final profile = await ApiClient.getProfile();
@@ -69,10 +71,10 @@ class _AuthWrapperState extends State<AuthWrapper> {
         }
       } catch (e) {
         // Token may be expired/invalid — clear session
-        GlobalState.clear();
+        await GlobalState.clear();
       }
     } else {
-      GlobalState.clear();
+      await GlobalState.clear();
     }
     
     if (mounted) {

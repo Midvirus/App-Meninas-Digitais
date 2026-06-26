@@ -51,22 +51,32 @@ class _LoginPageState extends State<LoginPage> {
         return;
       }
 
-      // Store session in global state
-      GlobalState.authToken = token;
-      GlobalState.userEmail = email;
-      GlobalState.userRole = role;
-      GlobalState.userName = name;
-
-      // Try to fetch tutor name from profile
+      String? tutorName;
+      // Tentar buscar o nome do tutor
       try {
+        // Define o token temporariamente na memória para que getProfile funcione
+        GlobalState.authToken = token;
         final profile = await ApiClient.getProfile();
         final tutora = profile['tutora'];
         if (tutora != null && tutora is Map<String, dynamic>) {
-          GlobalState.tutorName = tutora['nome'] as String?;
+          tutorName = tutora['nome'] as String?;
         }
       } catch (_) {
-        // Ignore errors fetching profile details
+        // Ignorar erros ao buscar detalhes do perfil
       }
+
+      // Salvar os dados persistentemente
+      await GlobalState.saveToken(
+        token: token,
+        role: role,
+        name: name,
+        email: email,
+        tutor: tutorName,
+      );
+
+      print('=== LOG DE DEBUG: LOGIN ===');
+      print('Token armazenado localmente: $token');
+      print('===========================');
 
       if (!mounted) return;
 
