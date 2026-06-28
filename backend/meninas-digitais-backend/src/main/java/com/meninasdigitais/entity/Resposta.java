@@ -61,6 +61,10 @@ public class Resposta {
     @Builder.Default
     private boolean emDestaque = false;
 
+    @Column(name = "destaque_solicitado", nullable = false)
+    @Builder.Default
+    private boolean destaqueSolicitado = false;
+
     @Column(name = "comentario_destaque", columnDefinition = "TEXT")
     private String comentarioDestaque;
 

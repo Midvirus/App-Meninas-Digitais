@@ -49,11 +49,11 @@ class DesafioTutoraController {
         return ResponseEntity.ok(desafioService.feedbackResposta(respostaId, req));
     }
 
-    // RF13 - marcar destaque
-    @PatchMapping("/respostas/{respostaId}/destaque")
-    public ResponseEntity<Resposta> destaque(@PathVariable Long respostaId,
-                                             @Valid @RequestBody DestaqueRequest req) {
-        return ResponseEntity.ok(desafioService.marcarDestaque(respostaId, req));
+    // RF13 - solicitar destaque
+    @PostMapping("/respostas/{respostaId}/solicitar-destaque")
+    public ResponseEntity<Resposta> solicitarDestaque(@PathVariable Long respostaId,
+                                                      @Valid @RequestBody DestaqueRequest req) {
+        return ResponseEntity.ok(desafioService.solicitarDestaque(respostaId, req));
     }
 
     // RF09 - painel de progresso
@@ -98,6 +98,14 @@ class DesafioTutorandaController {
     @GetMapping("/minhas-respostas")
     public ResponseEntity<List<Resposta>> minhasRespostas(@AuthenticationPrincipal Usuario tutoranda) {
         return ResponseEntity.ok(respostaService.minhasRespostas(tutoranda.getId()));
+    }
+
+    // RF13 - responder solicitação de destaque
+    @PatchMapping("/respostas/{respostaId}/responder-destaque")
+    public ResponseEntity<Resposta> responderDestaque(
+            @PathVariable Long respostaId,
+            @RequestParam boolean aprovado) {
+        return ResponseEntity.ok(desafioService.responderSolicitacaoDestaque(respostaId, aprovado));
     }
 }
 

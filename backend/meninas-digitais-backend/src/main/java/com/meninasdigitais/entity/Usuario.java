@@ -13,7 +13,8 @@ import java.util.List;
 
 /**
  * Entidade principal de usuário.
- * Cobre RF01 (cadastro com papel), RF02 (perfil editável), RF19 (gerenciamento de usuários).
+ * Cobre RF01 (cadastro com papel), RF02 (perfil editável), RF19 (gerenciamento
+ * de usuários).
  */
 @Entity
 @Table(name = "usuarios")
@@ -79,7 +80,7 @@ public class Usuario implements UserDetails {
         atualizadoEm = LocalDateTime.now();
     }
 
-    //Spring Security
+    // Spring Security
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
@@ -87,20 +88,32 @@ public class Usuario implements UserDetails {
     }
 
     @Override
-    public String getPassword() { return senha; }
+    public String getPassword() {
+        return senha;
+    }
 
     @Override
-    public String getUsername() { return email; }
+    public String getUsername() {
+        return email;
+    }
 
     @Override
-    public boolean isAccountNonExpired() { return true; }
+    public boolean isAccountNonExpired() {
+        return true;
+    }
 
     @Override
-    public boolean isAccountNonLocked() { return ativo; }
+    public boolean isAccountNonLocked() {
+        return ativo;
+    }
 
     @Override
-    public boolean isCredentialsNonExpired() { return true; }
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
 
     @Override
-    public boolean isEnabled() { return ativo; }
+    public boolean isEnabled() {
+        return ativo;
+    }
 }

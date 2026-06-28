@@ -26,6 +26,7 @@ public class DesafioService {
     private final DesafioRepository desafioRepository;
     private final RespostaRepository respostaRepository;
     private final UsuarioRepository usuarioRepository;
+    private final com.meninasdigitais.repository.NotificacaoRepository notificacaoRepository;
 
     // RF04 e RF05 - criar e publicar desafio
     public Desafio criarDesafio(CriarDesafioRequest req, Usuario tutora) {
@@ -95,13 +96,36 @@ public class DesafioService {
         return progresso;
     }
 
-    // RF13 - marcar destaque
-    public Resposta marcarDestaque(Long respostaId, DestaqueRequest req) {
+    // RF13 - solicitar destaque
+    public Resposta solicitarDestaque(Long respostaId, DestaqueRequest req) {
         Resposta resposta = respostaRepository.findById(respostaId)
                 .orElseThrow(() -> new RuntimeException("Resposta não encontrada."));
-        resposta.setEmDestaque(true);
+        resposta.setDestaqueSolicitado(true);
         resposta.setComentarioDestaque(req.getComentarioDestaque());
-        resposta.setDestacadoEm(LocalDateTime.now());
+        
+        com.meninasdigitais.entity.Notificacao notificacao = com.meninasdigitais.entity.Notificacao.builder()
+                .usuario(resposta.getTutoranda())
+                .mensagem("Sua tutora achou sua resposta excelente e quer publicá-la no mural de destaques! Você autoriza?")
+                .tipo("SOLICITACAO_DESTAQUE")
+                .referenciaId(resposta.getId())
+                .lida(false)
+                .build();
+        notificacaoRepository.save(notificacao);
+        
+        return respostaRepository.save(resposta);
+    }
+
+    public Resposta responderSolicitacaoDestaque(Long respostaId, boolean aprovado) {
+        Resposta resposta = respostaRepository.findById(respostaId)
+                .orElseThrow(() -> new RuntimeException("Resposta não encontrada."));
+        
+        if (aprovado) {
+            resposta.setEmDestaque(true);
+            resposta.setDestacadoEm(LocalDateTime.now());
+        } else {
+            resposta.setEmDestaque(false);
+        }
+        resposta.setDestaqueSolicitado(false);
         return respostaRepository.save(resposta);
     }
 

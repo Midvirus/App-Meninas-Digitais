@@ -11,7 +11,8 @@ import java.util.List;
 
 /**
  * Representa um desafio criado por uma Tutora.
- * RF04 - criação com título, descrição, dificuldade, prazo, tipo de resposta e tags.
+ * RF04 - criação com título, descrição, dificuldade, prazo, tipo de resposta e
+ * tags.
  * RF05 - publicação para todas ou tutorandas específicas.
  * RF07 - status visível para tutorandas.
  * RF09 - painel de progresso (percentual calculado no serviço).
@@ -46,11 +47,13 @@ public class Desafio {
     @Column(name = "tipo_resposta", nullable = false)
     private ResponseType tipoResposta;
 
-    // Tags armazenadas como texto separado por vírgula (simples para projeto acadêmico)
+    // Tags armazenadas como texto separado por vírgula (simples para projeto
+    // acadêmico)
     @Column(name = "tags")
     private String tags;
 
-    // RF05 - se false, o desafio é direcionado a tutorandas específicas (ver DesafioTutoranda)
+    // RF05 - se false, o desafio é direcionado a tutorandas específicas (ver
+    // DesafioTutoranda)
     @Column(name = "para_todas", nullable = false)
     private boolean paraTodasTutorandas = true;
 
@@ -66,11 +69,7 @@ public class Desafio {
 
     // RF05 - tutorandas específicas vinculadas ao desafio
     @ManyToMany
-    @JoinTable(
-            name = "desafio_tutorandas",
-            joinColumns = @JoinColumn(name = "desafio_id"),
-            inverseJoinColumns = @JoinColumn(name = "tutoranda_id")
-    )
+    @JoinTable(name = "desafio_tutorandas", joinColumns = @JoinColumn(name = "desafio_id"), inverseJoinColumns = @JoinColumn(name = "tutoranda_id"))
     @Builder.Default
     private List<Usuario> tutorandasEspecificas = new ArrayList<>();
 
@@ -81,6 +80,7 @@ public class Desafio {
     @PrePersist
     protected void onCreate() {
         criadoEm = LocalDateTime.now();
-        if (!ativo) ativo = true; // garante que sempre inicia ativo
+        if (!ativo)
+            ativo = true; // garante que sempre inicia ativo
     }
 }
