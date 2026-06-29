@@ -36,6 +36,12 @@ class DesafioTutoraController {
         return ResponseEntity.ok(desafioService.criarDesafio(req, tutora));
     }
 
+    // Listar desafios criados pela tutora
+    @GetMapping
+    public ResponseEntity<List<Desafio>> listarDesafios(@AuthenticationPrincipal Usuario tutora) {
+        return ResponseEntity.ok(desafioService.listarDesafiosPorTutora(tutora.getId()));
+    }
+
     // RF08 - respostas de um desafio
     @GetMapping("/{desafioId}/respostas")
     public ResponseEntity<List<Resposta>> respostas(@PathVariable Long desafioId) {

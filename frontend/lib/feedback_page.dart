@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'NavBar.dart';
 import 'global_state.dart';
+import 'api_client.dart';
 
 // ---------------------------------------------------------------------------
 // Models
@@ -51,42 +52,18 @@ class _FeedbackPageState extends State<FeedbackPage>
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
-  final List<TutorSubmission> _submissions = [
-    TutorSubmission(
-      challengeTitle: 'Desafio 1',
-      question: 'Qual destas opcoes e uma linguagem de programacao?',
-      tutorandaName: 'Ana',
-      submittedAt: DateTime.now().subtract(const Duration(hours: 3)),
-      responseType: SubmissionType.multipleChoice,
-      response: 'Python',
-    ),
-    TutorSubmission(
-      challengeTitle: 'Desafio 2',
-      question: 'Explique com detalhes o que e um botao de radio em um formulario e como ele se diferencia de um checkbox.',
-      tutorandaName: 'Beatriz',
-      submittedAt: DateTime.now().subtract(const Duration(days: 1)),
-      responseType: SubmissionType.text,
-      response:
-          'Um botao de radio e um elemento de interface grafica que permite ao usuario selecionar apenas uma opcao de um grupo de opcoes mutuamente exclusivas. Diferente do checkbox, que permite multiplas selecoes simultaneas, o botao de radio garante que apenas uma escolha seja feita por vez. Quando o usuario clica em um botao de radio, todos os outros do mesmo grupo sao automaticamente desmarcados. Eles sao muito utilizados em formularios onde apenas uma resposta e valida, como perguntas de multipla escolha ou selecao de genero.',
-    ),
-    TutorSubmission(
-      challengeTitle: 'Desafio 3',
-      question: 'Envie o nome de um arquivo que comprove sua atividade.',
-      tutorandaName: 'Ana',
-      submittedAt: DateTime.now().subtract(const Duration(hours: 6)),
-      responseType: SubmissionType.file,
-      response: 'atividade_ana_entrega_final_revisada_v2.pdf',
-    ),
-  ];
+  List<dynamic> _apiSubmissions = [];
+  bool _isLoading = true;
 
-  List<TutorSubmission> get _pending =>
-      _submissions.where((s) => !s.reviewed && _matchesSearch(s)).toList();
-  List<TutorSubmission> get _reviewed =>
-      _submissions.where((s) => s.reviewed && _matchesSearch(s)).toList();
+  List<dynamic> get _pending =>
+      _apiSubmissions.where((s) => s['feedback'] == null && _matchesSearch(s)).toList();
+  List<dynamic> get _reviewed =>
+      _apiSubmissions.where((s) => s['feedback'] != null && _matchesSearch(s)).toList();
 
-  bool _matchesSearch(TutorSubmission s) {
+  bool _matchesSearch(dynamic s) {
     if (_searchQuery.isEmpty) return true;
-    return s.tutorandaName.toLowerCase().contains(_searchQuery.toLowerCase());
+    final name = (s['tutoranda']?['nome'] ?? '').toString().toLowerCase();
+    return name.contains(_searchQuery.toLowerCase());
   }
 
   @override
@@ -98,6 +75,31 @@ class _FeedbackPageState extends State<FeedbackPage>
       });
     }
     _tabController = TabController(length: 2, vsync: this);
+    _loadSubmissions();
+  }
+
+  Future<void> _loadSubmissions() async {
+    try {
+      final challenges = await ApiClient.listChallengesForTutora();
+      List<dynamic> allResponses = [];
+      for (var challenge in challenges) {
+        final responses = await ApiClient.respostasDoDesafio(challenge['id']);
+        allResponses.addAll(responses);
+      }
+      if (mounted) {
+        setState(() {
+          _apiSubmissions = allResponses;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao carregar respostas: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -119,52 +121,41 @@ class _FeedbackPageState extends State<FeedbackPage>
         '${dt.minute.toString().padLeft(2, '0')}';
   }
 
-  IconData _responseIcon(SubmissionType t) {
-    switch (t) {
-      case SubmissionType.multipleChoice:
-        return Icons.radio_button_checked;
-      case SubmissionType.text:
-        return Icons.text_snippet;
-      case SubmissionType.file:
-        return Icons.attach_file;
-    }
+  String _responseLabel(dynamic submission) {
+    if (submission['arquivoPath'] != null || submission['linkExterno'] != null) return 'Arquivo';
+    return 'Texto';
   }
 
-  String _responseLabel(SubmissionType t) {
-    switch (t) {
-      case SubmissionType.multipleChoice:
-        return 'Escolha';
-      case SubmissionType.text:
-        return 'Texto';
-      case SubmissionType.file:
-        return 'Arquivo';
-    }
+  IconData _responseIcon(dynamic submission) {
+    if (submission['arquivoPath'] != null || submission['linkExterno'] != null) return Icons.attach_file;
+    return Icons.text_snippet;
   }
 
   // ---------------------------------------------------------------------------
   // Response widget (used inside dialogs)
   // ---------------------------------------------------------------------------
 
-  Widget _responseContent(TutorSubmission s) {
-    if (s.responseType == SubmissionType.file) {
+  Widget _responseContent(dynamic s) {
+    final text = s['textoResposta'] ?? s['arquivoPath'] ?? s['linkExterno'] ?? '';
+    if (s['arquivoPath'] != null || s['linkExterno'] != null) {
       return Row(
         children: [
           const Icon(Icons.insert_drive_file, size: 18, color: Colors.deepPurple),
           const SizedBox(width: 6),
           Expanded(
-            child: Text(s.response, style: const TextStyle(fontStyle: FontStyle.italic)),
+            child: Text(text, style: const TextStyle(fontStyle: FontStyle.italic)),
           ),
         ],
       );
     }
-    return Text(s.response);
+    return Text(text);
   }
 
   // ---------------------------------------------------------------------------
   // Detail dialog — pending (view full response + dar feedback)
   // ---------------------------------------------------------------------------
 
-  void _openPendingDetailDialog(TutorSubmission submission) {
+  void _openPendingDetailDialog(dynamic submission) {
     showDialog(
       context: context,
       builder: (ctx) {
@@ -176,7 +167,7 @@ class _FeedbackPageState extends State<FeedbackPage>
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  submission.challengeTitle,
+                  submission['desafio']?['titulo'] ?? 'Desafio',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
@@ -195,14 +186,14 @@ class _FeedbackPageState extends State<FeedbackPage>
                       children: [
                         const Icon(Icons.person, size: 15, color: Colors.deepPurple),
                         const SizedBox(width: 4),
-                        Text(submission.tutorandaName,
+                        Text(submission['tutoranda']?['nome'] ?? 'Desconhecido',
                             style: const TextStyle(
                                 fontWeight: FontWeight.w600,
                                 color: Colors.deepPurple)),
                         const SizedBox(width: 12),
                         Icon(Icons.calendar_today, size: 13, color: Colors.grey[500]),
                         const SizedBox(width: 4),
-                        Text(_formatDate(submission.submittedAt),
+                        Text(_formatDate(DateTime.tryParse(submission['enviadoEm'] ?? '') ?? DateTime.now()),
                             style: TextStyle(fontSize: 12, color: Colors.grey[500])),
                       ],
                     ),
@@ -222,7 +213,7 @@ class _FeedbackPageState extends State<FeedbackPage>
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: Colors.deepPurple.withOpacity(0.2)),
                       ),
-                      child: Text(submission.question,
+                      child: Text(submission['desafio']?['descricao'] ?? '',
                           style: const TextStyle(fontSize: 14)),
                     ),
                     const SizedBox(height: 16),
@@ -286,13 +277,10 @@ class _FeedbackPageState extends State<FeedbackPage>
   // Detail dialog — reviewed (view full response + feedback, read-only)
   // ---------------------------------------------------------------------------
 
-  void _openReviewedDetailDialog(TutorSubmission submission) {
-    final gradeValue = submission.grade ?? 0;
-    final gradeColor = gradeValue >= 7
-        ? Colors.green
-        : gradeValue >= 5
-            ? Colors.orange
-            : Colors.red;
+  void _openReviewedDetailDialog(dynamic submission) {
+    final status = submission['status'] ?? 'PENDENTE';
+    final isAprovado = status == 'APROVADO';
+    final gradeColor = isAprovado ? Colors.green : Colors.red;
 
     showDialog(
       context: context,
@@ -305,7 +293,7 @@ class _FeedbackPageState extends State<FeedbackPage>
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  submission.challengeTitle,
+                  submission['desafio']?['titulo'] ?? 'Desafio',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
@@ -317,7 +305,7 @@ class _FeedbackPageState extends State<FeedbackPage>
                   border: Border.all(color: gradeColor),
                 ),
                 child: Text(
-                  'Nota: ${gradeValue.toStringAsFixed(1)}',
+                  status,
                   style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: gradeColor,
@@ -339,14 +327,14 @@ class _FeedbackPageState extends State<FeedbackPage>
                       children: [
                         const Icon(Icons.person, size: 15, color: Colors.green),
                         const SizedBox(width: 4),
-                        Text(submission.tutorandaName,
+                        Text(submission['tutoranda']?['nome'] ?? 'Desconhecido',
                             style: const TextStyle(
                                 fontWeight: FontWeight.w600,
                                 color: Colors.green)),
                         const SizedBox(width: 12),
                         Icon(Icons.calendar_today, size: 13, color: Colors.grey[500]),
                         const SizedBox(width: 4),
-                        Text(_formatDate(submission.submittedAt),
+                        Text(_formatDate(DateTime.tryParse(submission['enviadoEm'] ?? '') ?? DateTime.now()),
                             style: TextStyle(fontSize: 12, color: Colors.grey[500])),
                       ],
                     ),
@@ -366,18 +354,18 @@ class _FeedbackPageState extends State<FeedbackPage>
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: Colors.deepPurple.withOpacity(0.2)),
                       ),
-                      child: Text(submission.question,
+                      child: Text(submission['desafio']?['descricao'] ?? '',
                           style: const TextStyle(fontSize: 14)),
                     ),
                     const SizedBox(height: 16),
                     // Response
                     Row(
                       children: [
-                        Icon(_responseIcon(submission.responseType),
+                        Icon(_responseIcon(submission),
                             size: 14, color: Colors.grey[600]),
                         const SizedBox(width: 4),
                         Text(
-                          'Resposta (${_responseLabel(submission.responseType)})',
+                          'Resposta (${_responseLabel(submission)})',
                           style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
@@ -428,6 +416,14 @@ class _FeedbackPageState extends State<FeedbackPage>
             ),
           ),
           actions: [
+            if (isAprovado && submission['destaqueSolicitado'] != true && submission['emDestaque'] != true)
+              TextButton.icon(
+                icon: const Icon(Icons.star, color: Colors.orange),
+                label: const Text('Solicitar Destaque', style: TextStyle(color: Colors.orange)),
+                onPressed: () {
+                  _openSolicitarDestaqueDialog(submission);
+                },
+              ),
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
               child: const Text('Fechar'),
@@ -438,14 +434,83 @@ class _FeedbackPageState extends State<FeedbackPage>
     );
   }
 
+  void _openSolicitarDestaqueDialog(dynamic submission) {
+    final controller = TextEditingController();
+    bool isSending = false;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setDlgState) {
+        return AlertDialog(
+          title: const Text('Solicitar Destaque'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Escreva um comentário justificando o destaque para a tutoranda:'),
+              const SizedBox(height: 8),
+              TextField(
+                controller: controller,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  hintText: 'Excelente trabalho...',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSending ? null : () => Navigator.pop(ctx),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: isSending ? null : () async {
+                final txt = controller.text.trim();
+                if (txt.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Escreva um comentário.')));
+                  return;
+                }
+                setDlgState(() => isSending = true);
+                try {
+                  await ApiClient.solicitarDestaqueResposta(submission['id'], txt);
+                  if (mounted) {
+                    Navigator.pop(ctx); // fecha modal de destaque
+                    Navigator.pop(context); // fecha modal de detalhes
+                    _loadSubmissions();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Destaque solicitado com sucesso!'), backgroundColor: Colors.green));
+                  }
+                } catch(e) {
+                  setDlgState(() => isSending = false);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Erro: $e'), backgroundColor: Colors.red));
+                }
+              },
+              child: isSending 
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Text('Solicitar'),
+            ),
+          ],
+        );
+      }),
+    );
+  }
+
   // ---------------------------------------------------------------------------
   // Feedback dialog
   // ---------------------------------------------------------------------------
 
-  void _openFeedbackDialog(TutorSubmission submission) {
+  void _openFeedbackDialog(dynamic submission) {
     final feedbackController =
-        TextEditingController(text: submission.feedbackText ?? '');
-    double grade = submission.grade ?? 0;
+        TextEditingController(text: submission['feedback'] ?? '');
+    bool isAprovado = (submission['status'] == 'APROVADO');
+    bool isSending = false;
 
     showDialog(
       context: context,
@@ -482,24 +547,24 @@ class _FeedbackPageState extends State<FeedbackPage>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(submission.challengeTitle,
+                          Text(submission['desafio']?['titulo'] ?? '',
                               style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: Colors.deepPurple)),
                           const SizedBox(height: 4),
-                          Text(submission.question,
+                          Text(submission['desafio']?['descricao'] ?? '',
                               style: const TextStyle(fontSize: 13),
                               maxLines: 3,
                               overflow: TextOverflow.ellipsis),
                           const SizedBox(height: 6),
                           Row(
                             children: [
-                              Icon(_responseIcon(submission.responseType),
+                              Icon(_responseIcon(submission),
                                   size: 13, color: Colors.grey[600]),
                               const SizedBox(width: 4),
                               Expanded(
                                 child: Text(
-                                  submission.response,
+                                  submission['textoResposta'] ?? submission['arquivoPath'] ?? submission['linkExterno'] ?? '',
                                   style: TextStyle(
                                       fontSize: 12,
                                       color: Colors.grey[700],
@@ -533,37 +598,17 @@ class _FeedbackPageState extends State<FeedbackPage>
                       ),
                     ),
                     const SizedBox(height: 14),
-                    const Text('Nota (0 - 10)',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
                     Row(
                       children: [
-                        Expanded(
-                          child: Slider(
-                            value: grade,
-                            min: 0,
-                            max: 10,
-                            divisions: 20,
-                            activeColor: Colors.deepPurple,
-                            label: grade.toStringAsFixed(1),
-                            onChanged: (v) => setDlgState(() => grade = v),
-                          ),
-                        ),
-                        Container(
-                          width: 52,
-                          padding: const EdgeInsets.symmetric(
-                              vertical: 6, horizontal: 10),
-                          decoration: BoxDecoration(
-                            color: Colors.deepPurple,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            grade.toStringAsFixed(1),
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold),
-                            textAlign: TextAlign.center,
-                          ),
+                        const Text('Aprovar Resposta?',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        const Spacer(),
+                        Switch(
+                          value: isAprovado,
+                          activeColor: Colors.green,
+                          onChanged: (v) {
+                            setDlgState(() => isAprovado = v);
+                          },
                         ),
                       ],
                     ),
@@ -573,11 +618,13 @@ class _FeedbackPageState extends State<FeedbackPage>
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
+                onPressed: isSending ? null : () => Navigator.of(ctx).pop(),
                 child: const Text('Cancelar'),
               ),
               ElevatedButton.icon(
-                icon: const Icon(Icons.send, size: 18),
+                icon: isSending 
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Icon(Icons.send, size: 18),
                 label: const Text('Enviar'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.deepPurple,
@@ -585,24 +632,42 @@ class _FeedbackPageState extends State<FeedbackPage>
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8)),
                 ),
-                onPressed: () {
+                onPressed: isSending ? null : () async {
                   final feedback = feedbackController.text.trim();
                   if (feedback.isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                         content: Text('Escreva um feedback antes de enviar.')));
                     return;
                   }
-                  setState(() {
-                    submission.feedbackText = feedback;
-                    submission.grade = grade;
-                    submission.reviewed = true;
-                  });
-                  Navigator.of(ctx).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text(
-                        'Feedback enviado para ${submission.tutorandaName}!'),
-                    backgroundColor: Colors.green,
-                  ));
+                  
+                  setDlgState(() => isSending = true);
+                  
+                  try {
+                    await ApiClient.feedbackResposta(
+                      submission['id'],
+                      feedback,
+                      isAprovado,
+                    );
+                    
+                    if (mounted) {
+                      Navigator.of(ctx).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text(
+                            'Feedback enviado para ${submission['tutoranda']?['nome']}!'),
+                        backgroundColor: Colors.green,
+                      ));
+                      // Recarrega a lista de submissoes
+                      _loadSubmissions();
+                    }
+                  } catch (e) {
+                    setDlgState(() => isSending = false);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text('Erro ao enviar feedback: $e'),
+                        backgroundColor: Colors.red,
+                      ));
+                    }
+                  }
                 },
               ),
             ],
@@ -616,7 +681,7 @@ class _FeedbackPageState extends State<FeedbackPage>
   // Compact pending card
   // ---------------------------------------------------------------------------
 
-  Widget _buildPendingCard(TutorSubmission s) {
+  Widget _buildPendingCard(dynamic s) {
     return Card(
       elevation: 3,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -635,7 +700,7 @@ class _FeedbackPageState extends State<FeedbackPage>
                     color: Colors.deepPurple,
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: Text(s.challengeTitle,
+                  child: Text(s['desafio']?['titulo'] ?? '',
                       style: const TextStyle(
                           color: Colors.white,
                           fontSize: 12,
@@ -652,23 +717,23 @@ class _FeedbackPageState extends State<FeedbackPage>
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(_responseIcon(s.responseType),
+                      Icon(_responseIcon(s),
                           size: 12, color: Colors.orange[700]),
                       const SizedBox(width: 4),
-                      Text(_responseLabel(s.responseType),
+                      Text(_responseLabel(s),
                           style: TextStyle(
                               fontSize: 11, color: Colors.orange[700])),
                     ],
                   ),
                 ),
                 const Spacer(),
-                Text(_formatDate(s.submittedAt),
+                Text(_formatDate(DateTime.tryParse(s['enviadoEm'] ?? '') ?? DateTime.now()),
                     style: TextStyle(fontSize: 11, color: Colors.grey[500])),
               ],
             ),
             const SizedBox(height: 10),
             // Question (truncated)
-            Text(s.question,
+            Text(s['desafio']?['descricao'] ?? '',
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis),
@@ -678,7 +743,7 @@ class _FeedbackPageState extends State<FeedbackPage>
               children: [
                 const Icon(Icons.person, size: 15, color: Colors.deepPurple),
                 const SizedBox(width: 4),
-                Text(s.tutorandaName,
+                Text(s['tutoranda']?['nome'] ?? 'Desconhecido',
                     style: const TextStyle(
                         fontWeight: FontWeight.w600, color: Colors.deepPurple,
                         fontSize: 13)),
@@ -699,7 +764,7 @@ class _FeedbackPageState extends State<FeedbackPage>
                 children: [
                   Row(
                     children: [
-                      Icon(_responseIcon(s.responseType),
+                      Icon(_responseIcon(s),
                           size: 13, color: Colors.grey[600]),
                       const SizedBox(width: 4),
                       Text('Resposta:',
@@ -710,14 +775,14 @@ class _FeedbackPageState extends State<FeedbackPage>
                     ],
                   ),
                   const SizedBox(height: 4),
-                  s.responseType == SubmissionType.file
+                  (s['arquivoPath'] != null || s['linkExterno'] != null)
                       ? Row(
                           children: [
                             const Icon(Icons.insert_drive_file,
                                 size: 16, color: Colors.deepPurple),
                             const SizedBox(width: 4),
                             Expanded(
-                              child: Text(s.response,
+                              child: Text(s['textoResposta'] ?? s['arquivoPath'] ?? s['linkExterno'] ?? '',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
@@ -726,7 +791,7 @@ class _FeedbackPageState extends State<FeedbackPage>
                           ],
                         )
                       : Text(
-                          s.response,
+                          s['textoResposta'] ?? '',
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(fontSize: 13),
@@ -774,13 +839,10 @@ class _FeedbackPageState extends State<FeedbackPage>
   // Compact reviewed card
   // ---------------------------------------------------------------------------
 
-  Widget _buildReviewedCard(TutorSubmission s) {
-    final gradeValue = s.grade ?? 0;
-    final gradeColor = gradeValue >= 7
-        ? Colors.green
-        : gradeValue >= 5
-            ? Colors.orange
-            : Colors.red;
+  Widget _buildReviewedCard(dynamic s) {
+    final status = s['status'] ?? 'PENDENTE';
+    final isAprovado = status == 'APROVADO';
+    final gradeColor = isAprovado ? Colors.green : Colors.red;
 
     return Card(
       elevation: 3,
@@ -800,7 +862,7 @@ class _FeedbackPageState extends State<FeedbackPage>
                     color: Colors.green,
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: Text(s.challengeTitle,
+                  child: Text(s['desafio']?['titulo'] ?? '',
                       style: const TextStyle(
                           color: Colors.white,
                           fontSize: 12,
@@ -817,10 +879,10 @@ class _FeedbackPageState extends State<FeedbackPage>
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(_responseIcon(s.responseType),
+                      Icon(_responseIcon(s),
                           size: 12, color: Colors.grey[600]),
                       const SizedBox(width: 4),
-                      Text(_responseLabel(s.responseType),
+                      Text(_responseLabel(s),
                           style: TextStyle(
                               fontSize: 11, color: Colors.grey[600])),
                     ],
@@ -835,7 +897,7 @@ class _FeedbackPageState extends State<FeedbackPage>
                     border: Border.all(color: gradeColor),
                   ),
                   child: Text(
-                    'Nota: ${gradeValue.toStringAsFixed(1)}',
+                    status,
                     style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: gradeColor,
@@ -845,11 +907,11 @@ class _FeedbackPageState extends State<FeedbackPage>
               ],
             ),
             const SizedBox(height: 6),
-            Text(_formatDate(s.submittedAt),
+            Text(_formatDate(DateTime.tryParse(s['enviadoEm'] ?? '') ?? DateTime.now()),
                 style: TextStyle(fontSize: 11, color: Colors.grey[500])),
             const SizedBox(height: 10),
             // Question (truncated)
-            Text(s.question,
+            Text(s['desafio']?['descricao'] ?? '',
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis),
@@ -859,7 +921,7 @@ class _FeedbackPageState extends State<FeedbackPage>
               children: [
                 const Icon(Icons.person, size: 15, color: Colors.green),
                 const SizedBox(width: 4),
-                Text(s.tutorandaName,
+                Text(s['tutoranda']?['nome'] ?? 'Desconhecido',
                     style: const TextStyle(
                         fontWeight: FontWeight.w600, color: Colors.green,
                         fontSize: 13)),
@@ -880,7 +942,7 @@ class _FeedbackPageState extends State<FeedbackPage>
                 children: [
                   Row(
                     children: [
-                      Icon(_responseIcon(s.responseType),
+                      Icon(_responseIcon(s),
                           size: 13, color: Colors.grey[600]),
                       const SizedBox(width: 4),
                       Text('Resposta:',
@@ -891,14 +953,14 @@ class _FeedbackPageState extends State<FeedbackPage>
                     ],
                   ),
                   const SizedBox(height: 4),
-                  s.responseType == SubmissionType.file
+                  (s['arquivoPath'] != null || s['linkExterno'] != null)
                       ? Row(
                           children: [
                             const Icon(Icons.insert_drive_file,
                                 size: 16, color: Colors.deepPurple),
                             const SizedBox(width: 4),
                             Expanded(
-                              child: Text(s.response,
+                              child: Text(s['textoResposta'] ?? s['arquivoPath'] ?? s['linkExterno'] ?? '',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
@@ -907,7 +969,7 @@ class _FeedbackPageState extends State<FeedbackPage>
                             ),
                           ],
                         )
-                      : Text(s.response,
+                      : Text(s['textoResposta'] ?? '',
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(fontSize: 13)),
@@ -939,7 +1001,7 @@ class _FeedbackPageState extends State<FeedbackPage>
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(s.feedbackText ?? '',
+                  Text(s['feedbackTutora'] ?? '',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontSize: 13)),

@@ -18,6 +18,8 @@ public class CriarDesafioRequest {
     private LocalDateTime prazoEntrega;
     @NotNull  private ResponseType tipoResposta;
     private String tags;
+    private List<String> opcoes;
+    private String respostaCorreta;
     // RF05
     private boolean paraTodasTutorandas = true;
     private List<Long> tutorandasEspecificasIds;

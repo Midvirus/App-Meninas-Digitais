@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'NavBar.dart';
 import 'global_state.dart';
+import 'api_client.dart';
 
 class ProjectDataPage extends StatefulWidget {
   const ProjectDataPage({super.key, required this.title});
@@ -12,31 +13,33 @@ class ProjectDataPage extends StatefulWidget {
 }
 
 class _ProjectDataPageState extends State<ProjectDataPage> {
-  // ── Sample data ─────────────────────────────────────────────────────────────
-  static const int totalParticipants = 18;
-  static const int totalTutors = 4;
-  static const int totalTutorandas = 14;
+  // ── State variables ─────────────────────────────────────────────────────────────
+  bool _isLoading = true;
 
-  static const int totalChallenges = 30;
-  static const int openChallenges = 12;
-  static const int closedChallenges = totalChallenges - openChallenges;
+  int totalParticipants = 0;
+  int totalTutors = 0;
+  int totalTutorandas = 0;
 
-  static const int totalPublications = 47;
-  static const int publicationsThisMonth = 12;
-  static const int publicationsWithLikes = 34;
-  static const int avgLikes = 7;
-  static const int categories = 5;
+  int totalChallenges = 0;
+  int openChallenges = 0;
+  int closedChallenges = 0;
 
-  static const int totalResponses = 95;
-  static const int sentResponses = 63;
+  int totalPublications = 0;
+  int publicationsThisMonth = 0;
+  int publicationsWithLikes = 0;
+  int avgLikes = 0;
+  int categories = 0;
 
-  static const int totalFeedbacks = 63;
-  static const int givenFeedbacks = 38;
+  int totalResponses = 0;
+  int sentResponses = 0;
+
+  int totalFeedbacks = 0;
+  int givenFeedbacks = 0;
 
   int get pendingResponses => totalResponses - sentResponses;
   int get pendingFeedbacks => totalFeedbacks - givenFeedbacks;
-  double get responseRate => sentResponses / totalResponses;
-  double get feedbackRate => givenFeedbacks / totalFeedbacks;
+  double get responseRate => totalResponses > 0 ? sentResponses / totalResponses : 0.0;
+  double get feedbackRate => totalFeedbacks > 0 ? givenFeedbacks / totalFeedbacks : 0.0;
 
   @override
   void initState() {
@@ -45,6 +48,40 @@ class _ProjectDataPageState extends State<ProjectDataPage> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.pushReplacementNamed(context, '/home');
       });
+    } else {
+      _loadData();
+    }
+  }
+
+  Future<void> _loadData() async {
+    try {
+      final data = await ApiClient.indicadores();
+      if (mounted) {
+        setState(() {
+          totalParticipants = data['totalParticipants'] ?? 0;
+          totalTutors = data['totalTutors'] ?? 0;
+          totalTutorandas = data['totalTutorandas'] ?? 0;
+          totalChallenges = data['totalChallenges'] ?? 0;
+          openChallenges = data['openChallenges'] ?? 0;
+          closedChallenges = data['closedChallenges'] ?? 0;
+          totalPublications = data['totalPublications'] ?? 0;
+          publicationsThisMonth = data['publicationsThisMonth'] ?? 0;
+          publicationsWithLikes = data['publicationsWithLikes'] ?? 0;
+          avgLikes = data['avgLikes'] ?? 0;
+          categories = data['categories'] ?? 0;
+          totalResponses = data['totalResponses'] ?? 0;
+          sentResponses = data['sentResponses'] ?? 0;
+          totalFeedbacks = data['totalFeedbacks'] ?? 0;
+          givenFeedbacks = data['givenFeedbacks'] ?? 0;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -533,6 +570,14 @@ class _ProjectDataPageState extends State<ProjectDataPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(title: Text(widget.title)),
+        drawer: NavBar.buildDrawer(context),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,

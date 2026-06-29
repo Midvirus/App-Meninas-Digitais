@@ -2,20 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'NavBar.dart';
 import 'global_state.dart';
-
-class Challenge {
-  final String question;
-  final List<String> options;
-  final String correctAnswer;
-  final String justification;
-
-  Challenge({
-    required this.question,
-    required this.options,
-    required this.correctAnswer,
-    required this.justification,
-  });
-}
+import 'api_client.dart';
 
 class ChallengesPage extends StatefulWidget {
   const ChallengesPage({super.key, required this.title});
@@ -47,71 +34,54 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
   late final TabController _tabController;
   int _selectedTabIndex = 0;
 
-  final List<Challenge> _challenges = [
-    Challenge(
-      question: 'Qual destas opções é uma linguagem de programação?',
-      options: ['Caneta', 'Python', 'Computador'],
-      correctAnswer: 'Python',
-      justification: 'Python é uma linguagem de programação usada para criar software.',
-    ),
-    Challenge(
-      question: 'O que é um botão de rádio em um formulário?',
-      options: ['Uma seleção única', 'Um campo de texto', 'Uma imagem'],
-      correctAnswer: 'Uma seleção única',
-      justification: 'Botões de rádio permitem escolher apenas uma opção dentre várias.',
-    ),
-    Challenge(
-      question: 'Qual é a melhor prática ao usar radio buttons?',
-      options: [
-        'Permitir múltiplas respostas ao mesmo tempo',
-        'Exigir que o usuário escolha apenas uma opção',
-        'Não rotular as opções',
-      ],
-      correctAnswer: 'Exigir que o usuário escolha apenas uma opção',
-      justification: 'Radio buttons são usados quando apenas uma resposta deve ser selecionada.',
-    ),
-    Challenge(
-      question: 'Pergunta teste para verificar o funcionamento do sistema de desafios. Qual é a resposta correta?',
-      options: [
-        'A opção 2 está correta',
-        'Metade das opções estão mentindo',
-        'Essa é a opção correta',
-        'A opção 1 é a resposta certa',
-      ],
-      correctAnswer: 'Essa é a opção correta',
-      justification: 'É o que ela diz, o que mais você esperava?',
-    ),
-  ];
+  List<dynamic> get globalChallenges => _apiChallenges.where((c) => c['paraTodasTutorandas'] == true && c['tipoResposta'] == 'MULTIPLA_ESCOLHA').toList();
 
-  final List<TutorChallenge> _tutorChallenges = [
-    TutorChallenge(
-      question: 'Qual destas opções é uma linguagem de programação?',
-      responseType: TutorResponseType.multipleChoice,
-      options: ['Caneta', 'Python', 'Computador'],
-      description: 'Escolha a alternativa correta.',
-      tutorName: 'Fernanda',
-    ),
-    TutorChallenge(
-      question: 'Explique o que é um botão de rádio em um formulário.',
-      responseType: TutorResponseType.text,
-      description: 'Digite sua resposta em texto.',
-      tutorName: 'Fernanda',
-    ),
-    TutorChallenge(
-      question: 'Envie o nome de um arquivo que comprovem sua atividade.',
-      responseType: TutorResponseType.file,
-      description: 'Faça o upload de um arquivo ou informe o nome dele.',
-      tutorName: 'Fernanda',
-    ),
-  ];
+  List<dynamic> _apiChallenges = [];
+  bool _isLoading = true;
 
-  List<TutorChallenge> get _filteredTutorChallenges {
-    if (GlobalState.userRole == 'Tutoranda') {
-      return _tutorChallenges.where((c) => c.tutorName == GlobalState.tutorName).toList();
-    } else if (GlobalState.userRole == 'Tutor') {
-      return _tutorChallenges.where((c) => c.tutorName == GlobalState.userName).toList();
+  @override
+  void initState() {
+    super.initState();
+    _checkAuth();
+    _tabController = TabController(
+      length: GlobalState.userRole == 'admin' ? 1 : 2, 
+      vsync: this
+    );
+    _tabController.addListener(() {
+      if (mounted) {
+        setState(() {
+          _selectedTabIndex = _tabController.index;
+        });
+      }
+    });
+    _loadApiChallenges();
+  }
+
+  Future<void> _loadApiChallenges() async {
+    try {
+      List<dynamic> data = [];
+      if (GlobalState.userRole == 'Tutoranda') {
+        data = await ApiClient.listChallengesForTutoranda();
+      } else if (GlobalState.userRole == 'Tutor' || GlobalState.userRole == 'Tutora') {
+        data = await ApiClient.listChallengesForTutora();
+      }
+      
+      if (mounted) {
+        setState(() {
+          _apiChallenges = data;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao carregar desafios: $e')),
+        );
+      }
     }
-    return [];
   }
 
   final Map<int, String> _selectedAnswers = {};
@@ -129,22 +99,7 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
   final DateTime _firstChallengeDate = DateTime.now();
   final Map<int, bool> _answeredCorrectly = {};
 
-  @override
-  void initState() {
-    super.initState();
-    _checkAuth();
-    _tabController = TabController(
-      length: GlobalState.userRole == 'admin' ? 1 : 2, 
-      vsync: this
-    );
-    _tabController.addListener(() {
-      if (mounted) {
-        setState(() {
-          _selectedTabIndex = _tabController.index;
-        });
-      }
-    });
-  }
+  // (initState removido porque movi pra cima junto com _loadApiChallenges)
 
   @override
   void dispose() {
@@ -179,8 +134,8 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
       return;
     }
 
-    final challenge = _challenges[index];
-    final isCorrect = selected == challenge.correctAnswer;
+    final challenge = globalChallenges[index];
+    final isCorrect = selected == challenge['respostaCorreta'];
 
     setState(() {
       if (!_answeredCorrectly.containsKey(index)) {
@@ -210,8 +165,8 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
           children: [
             Text(
               isCorrect
-                  ? 'Muito bem! ${challenge.justification}'
-                  : 'A resposta correta é "${challenge.correctAnswer}". ${challenge.justification}',
+                  ? 'Muito bem!'
+                  : 'A resposta correta é "${challenge['respostaCorreta']}".',
             ),
             const SizedBox(height: 12),
             Container(
@@ -273,21 +228,15 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
     }
   }
 
-  void _submitTutorResponse(int index) {
-    final challenge = _tutorChallenges[index];
-    final responseType = challenge.responseType;
+  void _submitTutorResponse(int index) async {
+    final challenge = _apiChallenges[index];
+    final responseType = challenge['tipoResposta'];
+    final desafioId = challenge['id'];
     String? responseText;
+    String? filePath;
 
-    if (responseType == TutorResponseType.multipleChoice) {
-      final selected = _tutorSelectedChoices[index];
-      if (selected == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Escolha uma opção antes de enviar.')),
-        );
-        return;
-      }
-      responseText = selected;
-    } else if (responseType == TutorResponseType.text) {
+    // A API só retorna os tipos mapeados em ResponseType: TEXTO, ARQUIVO, CODIGO, IMAGEM
+    if (responseType == 'TEXTO' || responseType == 'CODIGO') {
       responseText = _getTutorTextController(index).text.trim();
       if (responseText.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -295,7 +244,7 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
         );
         return;
       }
-    } else if (responseType == TutorResponseType.file) {
+    } else if (responseType == 'ARQUIVO' || responseType == 'IMAGEM') {
       final picked = _tutorPickedFiles[index];
       if (picked == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -304,7 +253,30 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
         return;
       }
       responseText = picked.name;
-      // Here you could access picked.bytes for upload or picked.path for local path
+      filePath = picked.path; // ou bytes se for web
+    }
+
+    try {
+      if (responseType == 'ARQUIVO' || responseType == 'IMAGEM') {
+        if (filePath != null) {
+          await ApiClient.enviarResposta(desafioId, filePath: filePath);
+        } else {
+           // Usar bytes se for web, no flutter seria picked.bytes
+          final picked = _tutorPickedFiles[index];
+          await ApiClient.enviarResposta(
+            desafioId,
+            fileBytes: picked?.bytes,
+            fileName: picked?.name,
+          );
+        }
+      } else {
+        await ApiClient.enviarResposta(desafioId, textoResposta: responseText);
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao enviar resposta: $e')),
+      );
+      return;
     }
 
     showDialog(
@@ -487,14 +459,20 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
                     final justification =
                         'Esta é a resposta correta para este desafio.';
 
-                    setState(() {
-                      _challenges.add(
-                        Challenge(
-                          question: question,
-                          options: options,
-                          correctAnswer: correctAnswer,
-                          justification: justification,
-                        ),
+                    ApiClient.createChallenge({
+                      'titulo': 'Desafio Global',
+                      'descricao': question,
+                      'nivelDificuldade': 'MEDIA',
+                      'tipoResposta': 'MULTIPLA_ESCOLHA',
+                      'tags': '',
+                      'opcoes': options,
+                      'respostaCorreta': correctAnswer,
+                      'paraTodasTutorandas': true,
+                    }).then((_) {
+                      _loadApiChallenges();
+                    }).catchError((e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Erro ao criar desafio global: $e')),
                       );
                     });
 
@@ -530,25 +508,24 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
               onPressed: () => Navigator.of(context).pop(),
               child: const Text('Cancelar'),
             ),
-            TextButton(
+            ElevatedButton(
               onPressed: () {
-                setState(() {
-                  _challenges.removeAt(index);
-                  _selectedAnswers.remove(index);
-                  _answeredCorrectly.remove(index);
+                final challengeId = globalChallenges[index]['id'];
+                ApiClient.removerDesafio(challengeId).then((_) {
+                  _loadApiChallenges();
+                }).catchError((e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Erro ao remover: $e')),
+                  );
                 });
-
                 Navigator.of(context).pop();
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Desafio removido com sucesso.'),
-                  ),
-                );
               },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+              ),
               child: const Text(
                 'Remover',
-                style: TextStyle(color: Colors.red),
+                style: TextStyle(color: Colors.white),
               ),
             ),
           ],
@@ -691,36 +668,27 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
                       return;
                     }
 
-                    List<String> options = [];
-                    String description = '';
-
-                    if (selectedType == TutorResponseType.multipleChoice) {
-                      options = optionControllers
-                          .map((c) => c.text.trim())
-                          .where((t) => t.isNotEmpty)
-                          .toList();
-                      if (options.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Adicione pelo menos uma opção.')),
-                        );
-                        return;
-                      }
-                      description = 'Escolha a alternativa correta.';
-                    } else if (selectedType == TutorResponseType.text) {
-                      description = 'Digite sua resposta em texto.';
+                    String apiResponseType = 'TEXTO';
+                    if (selectedType == TutorResponseType.text) {
+                      apiResponseType = 'TEXTO';
                     } else if (selectedType == TutorResponseType.file) {
-                      description = 'Faça o upload de um arquivo ou informe o nome dele.';
+                      apiResponseType = 'ARQUIVO';
+                    } else if (selectedType == TutorResponseType.multipleChoice) {
+                      apiResponseType = 'TEXTO'; // Fallback for backend
                     }
 
-                    setState(() {
-                      _tutorChallenges.add(
-                        TutorChallenge(
-                          question: question,
-                          responseType: selectedType,
-                          options: options,
-                          description: description,
-                          tutorName: GlobalState.userName ?? '',
-                        ),
+                    ApiClient.createChallenge({
+                      'titulo': 'Desafio',
+                      'descricao': question,
+                      'nivelDificuldade': 'MEDIA',
+                      'tipoResposta': apiResponseType,
+                      'tags': '',
+                      'paraTodasTutorandas': true,
+                    }).then((_) {
+                      _loadApiChallenges();
+                    }).catchError((e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Erro ao criar desafio: $e')),
                       );
                     });
 
@@ -742,48 +710,7 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
     );
   }
 
-  void _confirmRemoveTutorChallenge(int originalIndex) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Remover desafio do tutor'),
-          content: const Text(
-            'Tem certeza que deseja remover este desafio?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancelar'),
-            ),
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  _tutorChallenges.removeAt(originalIndex);
-                  _tutorSelectedChoices.remove(originalIndex);
-                  _tutorTextControllers.remove(originalIndex);
-                  _tutorFileNames.remove(originalIndex);
-                  _tutorPickedFiles.remove(originalIndex);
-                });
 
-                Navigator.of(context).pop();
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Desafio do tutor removido com sucesso.'),
-                  ),
-                );
-              },
-              child: const Text(
-                'Remover',
-                style: TextStyle(color: Colors.red),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
 
   void _showStatistics() {
     int daysWithChallenges = DateTime.now().difference(_firstChallengeDate).inDays + 1;
@@ -1081,9 +1008,9 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
           const SizedBox(height: 20),
           Expanded(
             child: ListView.builder(
-              itemCount: _challenges.length,
+              itemCount: globalChallenges.length,
               itemBuilder: (context, index) {
-                final challenge = _challenges[index];
+                final challenge = globalChallenges[index];
                 return Card(
                   elevation: 3,
                   shape: RoundedRectangleBorder(
@@ -1116,15 +1043,15 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          challenge.question,
+                          challenge['descricao'] ?? '',
                           style: const TextStyle(fontSize: 15),
                         ),
                         const SizedBox(height: 12),
-                        ...challenge.options.map((option) {
+                        ...(challenge['opcoes'] as List<dynamic>? ?? []).map((option) {
                           return RadioListTile<String>(
-                            value: option,
+                            value: option.toString(),
                             groupValue: _selectedAnswers[index],
-                            title: Text(option),
+                            title: Text(option.toString()),
                             activeColor: Colors.deepPurple,
                             contentPadding: EdgeInsets.zero,
                             onChanged: (value) => _selectAnswer(index, value),
@@ -1166,24 +1093,10 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
   }
 
   Widget _buildTutorResponseWidget(int index) {
-    final challenge = _tutorChallenges[index];
+    final challenge = _apiChallenges[index];
+    final responseType = challenge['tipoResposta'];
 
-    if (challenge.responseType == TutorResponseType.multipleChoice) {
-      return Column(
-        children: challenge.options.map((option) {
-          return RadioListTile<String>(
-            value: option,
-            groupValue: _tutorSelectedChoices[index],
-            title: Text(option),
-            activeColor: Colors.deepPurple,
-            contentPadding: EdgeInsets.zero,
-            onChanged: (value) => _selectTutorChoice(index, value),
-          );
-        }).toList(),
-      );
-    }
-
-    if (challenge.responseType == TutorResponseType.text) {
+    if (responseType == 'TEXTO' || responseType == 'CODIGO') {
       return TextField(
         controller: _getTutorTextController(index),
         minLines: 3,
@@ -1215,7 +1128,11 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
   }
 
   Widget _buildTutorChallenges(BuildContext context) {
-    final challenges = _filteredTutorChallenges;
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final challenges = _apiChallenges;
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -1240,7 +1157,6 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
               itemCount: challenges.length,
               itemBuilder: (context, index) {
                 final challenge = challenges[index];
-                final originalIndex = _tutorChallenges.indexOf(challenge);
                 return Card(
                   elevation: 3,
                   shape: RoundedRectangleBorder(
@@ -1256,40 +1172,27 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              'Desafio ${index + 1}',
+                              challenge['titulo'] ?? 'Desafio ${index + 1}',
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.deepPurple,
                               ),
                             ),
-                            if (GlobalState.userRole == 'Tutor')
-                              IconButton(
-                                icon: const Icon(Icons.delete, color: Colors.redAccent),
-                                tooltip: 'Remover desafio',
-                                onPressed: () => _confirmRemoveTutorChallenge(originalIndex),
-                              ),
                           ],
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          challenge.question,
+                          challenge['descricao'] ?? '',
                           style: const TextStyle(fontSize: 15),
                         ),
-                        if (challenge.description.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            challenge.description,
-                            style: const TextStyle(color: Colors.black54),
-                          ),
-                        ],
                         const SizedBox(height: 12),
-                        _buildTutorResponseWidget(originalIndex),
+                        _buildTutorResponseWidget(index),
                         const SizedBox(height: 12),
                         Align(
                           alignment: Alignment.centerRight,
                           child: ElevatedButton(
-                            onPressed: () => _submitTutorResponse(originalIndex),
+                            onPressed: () => _submitTutorResponse(index),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.deepPurple,
                             ),

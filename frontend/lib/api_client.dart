@@ -24,7 +24,9 @@ class ApiClient {
     print('Método: $method');
     print('URL: $baseUrl$path');
     final token = GlobalState.authToken;
-    print('Token enviado: ${token != null ? 'Bearer $token' : 'NENHUM TOKEN (null)'}');
+    print(
+      'Token enviado: ${token != null ? 'Bearer $token' : 'NENHUM TOKEN (null)'}',
+    );
     print('=============================');
   }
 
@@ -53,7 +55,10 @@ class ApiClient {
     return jsonDecode(response.body);
   }
 
-  static Future<dynamic> patch(String path, {Map<String, dynamic>? body}) async {
+  static Future<dynamic> patch(
+    String path, {
+    Map<String, dynamic>? body,
+  }) async {
     _logRequest('PATCH', path);
     final response = await http.patch(
       Uri.parse('$baseUrl$path'),
@@ -94,25 +99,24 @@ class ApiClient {
   }) async {
     _logRequest(method, path);
     final request = http.MultipartRequest(method, Uri.parse('$baseUrl$path'));
-    
+
     if (GlobalState.authToken != null) {
       request.headers['Authorization'] = 'Bearer ${GlobalState.authToken}';
     }
-    
+
     if (fields != null) {
       request.fields.addAll(fields);
     }
     if (files != null) {
       request.files.addAll(files);
     }
-    
+
     final streamedResponse = await request.send();
     final response = await http.Response.fromStream(streamedResponse);
     _checkResponse(response);
     if (response.body.isEmpty) return null;
     return jsonDecode(response.body);
   }
-
 
   static void _checkResponse(http.Response response) {
     print('=== LOG DE DEBUG: RESPONSE ===');
@@ -126,15 +130,21 @@ class ApiClient {
 
     if (response.statusCode == 401 || response.statusCode == 403) {
       // O token expirou ou acesso negado
-      throw ApiException('Sessão expirada ou acesso negado. Faça login novamente. (HTTP ${response.statusCode})', response.statusCode);
+      throw ApiException(
+        'Sessão expirada ou acesso negado. Faça login novamente. (HTTP ${response.statusCode})',
+        response.statusCode,
+      );
     }
 
     String message;
     try {
       final body = jsonDecode(response.body);
-      message = body['message'] ?? body['error'] ?? body['erro'] ?? response.body;
+      message =
+          body['message'] ?? body['error'] ?? body['erro'] ?? response.body;
     } catch (_) {
-      message = response.body.isNotEmpty ? response.body : 'Erro desconhecido na requisição (${response.statusCode})';
+      message = response.body.isNotEmpty
+          ? response.body
+          : 'Erro desconhecido na requisição (${response.statusCode})';
     }
     throw ApiException(message, response.statusCode);
   }
@@ -143,11 +153,14 @@ class ApiClient {
 
   /// Login via POST /api/auth/login
   /// Returns { "token": "...", "role": "...", "nome": "..." }
-  static Future<Map<String, dynamic>> login(String email, String password) async {
-    final data = await post('/api/auth/login', body: {
-      'email': email,
-      'senha': password,
-    });
+  static Future<Map<String, dynamic>> login(
+    String email,
+    String password,
+  ) async {
+    final data = await post(
+      '/api/auth/login',
+      body: {'email': email, 'senha': password},
+    );
     return data as Map<String, dynamic>;
   }
 
@@ -166,7 +179,9 @@ class ApiClient {
   }
 
   /// Create user via POST /api/admin/usuarios
-  static Future<Map<String, dynamic>> createUser(Map<String, dynamic> userData) async {
+  static Future<Map<String, dynamic>> createUser(
+    Map<String, dynamic> userData,
+  ) async {
     final data = await post('/api/admin/usuarios', body: userData);
     return data as Map<String, dynamic>;
   }
@@ -177,13 +192,19 @@ class ApiClient {
   }
 
   /// Change user role via PATCH /api/admin/usuarios/{id}/role?role=ROLE
-  static Future<Map<String, dynamic>> changeUserRole(dynamic id, String role) async {
+  static Future<Map<String, dynamic>> changeUserRole(
+    dynamic id,
+    String role,
+  ) async {
     final data = await patch('/api/admin/usuarios/$id/role?role=$role');
     return data as Map<String, dynamic>;
   }
 
   /// Bind tutoranda to tutora via PATCH /api/admin/usuarios/{tutorandaId}/vincular/{tutoraId}
-  static Future<void> bindTutoranda(dynamic tutorandaId, dynamic tutoraId) async {
+  static Future<void> bindTutoranda(
+    dynamic tutorandaId,
+    dynamic tutoraId,
+  ) async {
     await patch('/api/admin/usuarios/$tutorandaId/vincular/$tutoraId');
   }
 
@@ -191,7 +212,9 @@ class ApiClient {
 
   /// List posts via GET /api/posts
   static Future<List<dynamic>> listPosts({String? category}) async {
-    final path = category != null ? '/api/posts?categoria=$category' : '/api/posts';
+    final path = category != null
+        ? '/api/posts?categoria=$category'
+        : '/api/posts';
     final data = await get(path);
     return data as List<dynamic>;
   }
@@ -210,9 +233,17 @@ class ApiClient {
   // ─── Challenges (Tutora) ──────────────────────────────────────────────
 
   /// Create challenge via POST /api/tutora/desafios
-  static Future<Map<String, dynamic>> createChallenge(Map<String, dynamic> challengeData) async {
+  static Future<Map<String, dynamic>> createChallenge(
+    Map<String, dynamic> challengeData,
+  ) async {
     final data = await post('/api/tutora/desafios', body: challengeData);
     return data as Map<String, dynamic>;
+  }
+
+  /// List challenges for tutora via GET /api/tutora/desafios
+  static Future<List<dynamic>> listChallengesForTutora() async {
+    final data = await get('/api/tutora/desafios');
+    return data as List<dynamic>? ?? [];
   }
 
   // ─── Challenges (Tutoranda) ───────────────────────────────────────────
@@ -235,19 +266,25 @@ class ApiClient {
     String? fileName,
   }) async {
     final queryParams = <String>[];
-    if (textoResposta != null) queryParams.add('textoResposta=${Uri.encodeComponent(textoResposta)}');
-    if (linkExterno != null) queryParams.add('linkExterno=${Uri.encodeComponent(linkExterno)}');
-    
-    final queryString = queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
+    if (textoResposta != null)
+      queryParams.add('textoResposta=${Uri.encodeComponent(textoResposta)}');
+    if (linkExterno != null)
+      queryParams.add('linkExterno=${Uri.encodeComponent(linkExterno)}');
+
+    final queryString = queryParams.isNotEmpty
+        ? '?${queryParams.join('&')}'
+        : '';
     final path = '/api/tutoranda/desafios/$desafioId/resposta$queryString';
-    
+
     List<http.MultipartFile>? files;
     if (filePath != null) {
       files = [await http.MultipartFile.fromPath('arquivo', filePath)];
     } else if (fileBytes != null && fileName != null) {
-      files = [http.MultipartFile.fromBytes('arquivo', fileBytes, filename: fileName)];
+      files = [
+        http.MultipartFile.fromBytes('arquivo', fileBytes, filename: fileName),
+      ];
     }
-    
+
     final data = await _multipartRequest('POST', path, files: files);
     return data as Map<String, dynamic>? ?? {};
   }
@@ -256,6 +293,44 @@ class ApiClient {
   static Future<List<dynamic>> minhasRespostas() async {
     final data = await get('/api/tutoranda/desafios/minhas-respostas');
     return data as List<dynamic>? ?? [];
+  }
+
+  /// PATCH /api/tutoranda/desafios/respostas/{respostaId}/responder-destaque
+  static Future<dynamic> responderDestaque(
+    int respostaId,
+    bool aprovado,
+  ) async {
+    final data = await patch(
+      '/api/tutoranda/desafios/respostas/$respostaId/responder-destaque?aprovado=$aprovado',
+    );
+    return data;
+  }
+
+  // ─── Notificações ──────────────────────────────────────────────────────
+
+  /// GET /api/tutoranda/notificacoes
+  static Future<List<dynamic>> listarNotificacoes() async {
+    final data = await get('/api/tutoranda/notificacoes');
+    return data as List<dynamic>? ?? [];
+  }
+
+  /// PATCH /api/tutoranda/notificacoes/{id}/lida
+  static Future<dynamic> marcarNotificacaoLida(int id) async {
+    final data = await patch('/api/tutoranda/notificacoes/$id/lida');
+    return data;
+  }
+
+  /// GET /api/tutoranda/estatisticas
+  static Future<Map<String, dynamic>> obterEstatisticas() async {
+    // Stub: retornando estatisticas iniciais vazias enquanto o backend não é integrado
+    return {
+      'pontos': 0,
+      'nivel': 1,
+      'streakAtual': 0,
+      'maiorStreak': 0,
+      'totalRespostas': 0,
+      'totalCorretas': 0,
+    };
   }
 
   // ─── Observações Tutora ───────────────────────────────────────────────
@@ -267,15 +342,23 @@ class ApiClient {
   }
 
   /// POST /api/tutora/observacoes/{tutorandaId}
-  static Future<Map<String, dynamic>> registrarObservacao(dynamic tutorandaId, String conteudo) async {
-    final data = await post('/api/tutora/observacoes/$tutorandaId', body: {'conteudo': conteudo});
+  static Future<Map<String, dynamic>> registrarObservacao(
+    dynamic tutorandaId,
+    String conteudo,
+  ) async {
+    final data = await post(
+      '/api/tutora/observacoes/$tutorandaId',
+      body: {'conteudo': conteudo},
+    );
     return data as Map<String, dynamic>? ?? {};
   }
 
   // ─── Posts ─────────────────────────────────────────────────────────────
 
   /// POST /api/posts
-  static Future<Map<String, dynamic>> publicar(Map<String, dynamic> dados) async {
+  static Future<Map<String, dynamic>> publicar(
+    Map<String, dynamic> dados,
+  ) async {
     final data = await post('/api/posts', body: dados);
     return data as Map<String, dynamic>? ?? {};
   }
@@ -291,31 +374,57 @@ class ApiClient {
     if (filePath != null) {
       files = [await http.MultipartFile.fromPath('imagem', filePath)];
     } else if (fileBytes != null && fileName != null) {
-      files = [http.MultipartFile.fromBytes('imagem', fileBytes, filename: fileName)];
+      files = [
+        http.MultipartFile.fromBytes('imagem', fileBytes, filename: fileName),
+      ];
     }
-    
+
     final fields = {'dados': jsonEncode(dados)};
-    
-    final data = await _multipartRequest('POST', '/api/posts/com-imagem', fields: fields, files: files);
+
+    final data = await _multipartRequest(
+      'POST',
+      '/api/posts/com-imagem',
+      fields: fields,
+      files: files,
+    );
     return data as Map<String, dynamic>? ?? {};
   }
 
   // ─── Desafios Tutora (Additional) ─────────────────────────────────────
 
   /// PATCH /api/tutora/desafios/respostas/{respostaId}/feedback
-  static Future<Map<String, dynamic>> feedbackResposta(dynamic respostaId, String feedback, bool aprovado) async {
-    final data = await patch('/api/tutora/desafios/respostas/$respostaId/feedback', body: {
-      'feedback': feedback,
-      'aprovado': aprovado,
-    });
+  static Future<Map<String, dynamic>> feedbackResposta(
+    dynamic respostaId,
+    String feedback,
+    bool aprovado,
+  ) async {
+    final data = await patch(
+      '/api/tutora/desafios/respostas/$respostaId/feedback',
+      body: {'feedback': feedback, 'aprovado': aprovado},
+    );
     return data as Map<String, dynamic>? ?? {};
   }
 
-  /// PATCH /api/tutora/desafios/respostas/{respostaId}/destaque
-  static Future<Map<String, dynamic>> destaqueResposta(dynamic respostaId, String comentario) async {
-    final data = await patch('/api/tutora/desafios/respostas/$respostaId/destaque', body: {
-      'comentarioDestaque': comentario,
-    });
+  /// POST /api/tutora/desafios/respostas/{respostaId}/solicitar-destaque
+  static Future<Map<String, dynamic>> solicitarDestaqueResposta(
+    dynamic respostaId,
+    String comentario,
+  ) async {
+    final data = await post(
+      '/api/tutora/desafios/respostas/$respostaId/solicitar-destaque',
+      body: {'comentarioDestaque': comentario},
+    );
+    return data as Map<String, dynamic>? ?? {};
+  }
+
+  /// PATCH /api/tutoranda/desafios/respostas/{respostaId}/responder-destaque
+  static Future<Map<String, dynamic>> responderSolicitacaoDestaque(
+    dynamic respostaId,
+    bool aprovado,
+  ) async {
+    final data = await patch(
+      '/api/tutoranda/desafios/respostas/$respostaId/responder-destaque?aprovado=$aprovado',
+    );
     return data as Map<String, dynamic>? ?? {};
   }
 
@@ -326,7 +435,9 @@ class ApiClient {
   }
 
   /// GET /api/tutora/desafios/{desafioId}/progresso
-  static Future<Map<String, dynamic>> progressoDesafio(dynamic desafioId) async {
+  static Future<Map<String, dynamic>> progressoDesafio(
+    dynamic desafioId,
+  ) async {
     final data = await get('/api/tutora/desafios/$desafioId/progresso');
     return data as Map<String, dynamic>? ?? {};
   }
@@ -343,18 +454,25 @@ class ApiClient {
   }) async {
     final queryParams = <String>[];
     if (nome != null) queryParams.add('nome=${Uri.encodeComponent(nome)}');
-    if (escolaInstituicao != null) queryParams.add('escolaInstituicao=${Uri.encodeComponent(escolaInstituicao)}');
-    
-    final queryString = queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
+    if (escolaInstituicao != null)
+      queryParams.add(
+        'escolaInstituicao=${Uri.encodeComponent(escolaInstituicao)}',
+      );
+
+    final queryString = queryParams.isNotEmpty
+        ? '?${queryParams.join('&')}'
+        : '';
     final path = '/api/perfil$queryString';
-    
+
     List<http.MultipartFile>? files;
     if (filePath != null) {
       files = [await http.MultipartFile.fromPath('foto', filePath)];
     } else if (fileBytes != null && fileName != null) {
-      files = [http.MultipartFile.fromBytes('foto', fileBytes, filename: fileName)];
+      files = [
+        http.MultipartFile.fromBytes('foto', fileBytes, filename: fileName),
+      ];
     }
-    
+
     final data = await _multipartRequest('PATCH', path, files: files);
     return data as Map<String, dynamic>? ?? {};
   }
@@ -362,14 +480,40 @@ class ApiClient {
   // ─── Admin ──────────────────────────────────────────────────────────────
 
   /// PATCH /api/admin/usuarios/{tutorandaId}/autorizacao
-  static Future<void> registrarAutorizacao(dynamic tutorandaId, bool autorizado) async {
-    await patch('/api/admin/usuarios/$tutorandaId/autorizacao?autorizado=$autorizado');
+  static Future<void> registrarAutorizacao(
+    dynamic tutorandaId,
+    bool autorizado,
+  ) async {
+    await patch(
+      '/api/admin/usuarios/$tutorandaId/autorizacao?autorizado=$autorizado',
+    );
   }
 
   /// GET /api/admin/indicadores
   static Future<Map<String, dynamic>> indicadores() async {
     final data = await get('/api/admin/indicadores');
-    return data as Map<String, dynamic>? ?? {};
+    if (data is Map<String, dynamic>) {
+      return {
+        'totalParticipants':
+            (data['tutorandasAtivas'] ?? 0) + (data['tutorasAtivas'] ?? 0),
+        'totalTutors': data['tutorasAtivas'] ?? 0,
+        'totalTutorandas': data['tutorandasAtivas'] ?? 0,
+        'totalChallenges': data['desafiosEmAndamento'] ?? 0,
+        'openChallenges': data['desafiosEmAndamento'] ?? 0,
+        'closedChallenges': 0,
+        // Dados simulados mantidos vazios/mock no backend
+        'totalPublications': 12,
+        'publicationsThisMonth': 3,
+        'publicationsWithLikes': 10,
+        'avgLikes': 15,
+        'categories': 5,
+        'totalResponses': data['totalRespostasEnviadas'] ?? 0,
+        'sentResponses': data['totalRespostasEnviadas'] ?? 0,
+        'totalFeedbacks': data['totalRespostasEnviadas'] ?? 0,
+        'givenFeedbacks': data['totalRespostasEnviadas'] ?? 0,
+      };
+    }
+    return {};
   }
 
   /// DELETE /api/admin/destaques/{respostaId}

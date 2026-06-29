@@ -52,6 +52,14 @@ public class Desafio {
     @Column(name = "tags")
     private String tags;
 
+    @ElementCollection
+    @CollectionTable(name = "desafio_opcoes", joinColumns = @JoinColumn(name = "desafio_id"))
+    @Column(name = "opcao")
+    private List<String> opcoes;
+
+    @Column(name = "resposta_correta")
+    private String respostaCorreta;
+
     // RF05 - se false, o desafio é direcionado a tutorandas específicas (ver
     // DesafioTutoranda)
     @Column(name = "para_todas", nullable = false)

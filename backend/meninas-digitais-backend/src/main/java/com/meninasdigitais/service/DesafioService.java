@@ -37,6 +37,8 @@ public class DesafioService {
                 .prazoEntrega(req.getPrazoEntrega())
                 .tipoResposta(req.getTipoResposta())
                 .tags(req.getTags())
+                .opcoes(req.getOpcoes())
+                .respostaCorreta(req.getRespostaCorreta())
                 .paraTodasTutorandas(req.isParaTodasTutorandas())
                 .tutora(tutora)
                 .build();
@@ -71,6 +73,11 @@ public class DesafioService {
     // RF08 - listar respostas de um desafio (para tutora validar)
     public List<Resposta> listarRespostasPorDesafio(Long desafioId) {
         return respostaRepository.findByDesafioId(desafioId);
+    }
+
+    // Listar desafios criados pela tutora
+    public List<Desafio> listarDesafiosPorTutora(Long tutoraId) {
+        return desafioRepository.findByTutoraIdAndAtivo(tutoraId, true);
     }
 
     // RF08 - dar feedback e validar resposta
