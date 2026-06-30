@@ -37,6 +37,7 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
   List<dynamic> get globalChallenges => _apiChallenges.where((c) => c['paraTodasTutorandas'] == true && c['tipoResposta'] == 'MULTIPLA_ESCOLHA').toList();
 
   List<dynamic> _apiChallenges = [];
+  List<dynamic> _minhasRespostas = [];
   bool _isLoading = true;
 
   @override
@@ -62,6 +63,12 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
       List<dynamic> data = [];
       if (GlobalState.userRole == 'Tutoranda') {
         data = await ApiClient.listChallengesForTutoranda();
+        final minhas = await ApiClient.minhasRespostas();
+        if (mounted) {
+          setState(() {
+            _minhasRespostas = minhas;
+          });
+        }
       } else if (GlobalState.userRole == 'Tutor' || GlobalState.userRole == 'Tutora') {
         data = await ApiClient.listChallengesForTutora();
       }
@@ -1245,6 +1252,15 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
     // Filter to only show challenges that are NOT global (paraTodasTutorandas == false)
     final challenges = _apiChallenges.where((c) => c['paraTodasTutorandas'] == false).toList();
 
+    // Ordenar: Pendentes primeiro, respondidos no final
+    challenges.sort((a, b) {
+      final aResp = _minhasRespostas.any((r) => r['desafio']?['id'] == a['id']);
+      final bResp = _minhasRespostas.any((r) => r['desafio']?['id'] == b['id']);
+      if (aResp && !bResp) return 1;
+      if (!aResp && bResp) return -1;
+      return 0;
+    });
+
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -1269,6 +1285,8 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
               itemCount: challenges.length,
               itemBuilder: (context, index) {
                 final challenge = challenges[index];
+                final respostaDada = _minhasRespostas.where((r) => r['desafio']?['id'] == challenge['id']).firstOrNull;
+                final bool isAnswered = respostaDada != null;
                 
                 bool isExpired = false;
                 if (challenge['prazoEntrega'] != null) {
@@ -1318,18 +1336,73 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
                           style: const TextStyle(fontSize: 15),
                         ),
                         const SizedBox(height: 12),
-                        _buildTutorResponseWidget(index, isExpired),
-                        const SizedBox(height: 12),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: ElevatedButton(
-                            onPressed: isExpired ? null : () => _submitTutorResponse(index),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: isExpired ? Colors.grey : Colors.deepPurple,
+                        if (isAnswered) ...[
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[100],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.grey.shade300),
                             ),
-                            child: const Text('Enviar resposta', style: TextStyle(color: Colors.white)),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.check_circle, size: 16, color: Colors.green),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Resposta enviada em ${respostaDada['enviadoEm'] != null ? DateTime.parse(respostaDada['enviadoEm']).toLocal().toString().substring(0, 16) : ''}',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(respostaDada['textoResposta'] ?? respostaDada['arquivoPath'] ?? respostaDada['linkExterno'] ?? '',
+                                  style: const TextStyle(fontStyle: FontStyle.italic),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
+                          if (respostaDada['feedbackTutora'] != null) ...[
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.deepPurple.withOpacity(0.06),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.deepPurple.withOpacity(0.3)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Row(
+                                    children: [
+                                      Icon(Icons.rate_review, size: 16, color: Colors.deepPurple),
+                                      SizedBox(width: 4),
+                                      Text('Feedback da Tutora:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.deepPurple)),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(respostaDada['feedbackTutora'], style: const TextStyle(color: Colors.black87)),
+                                ],
+                              ),
+                            ),
+                          ]
+                        ] else ...[
+                          _buildTutorResponseWidget(index, isExpired),
+                          const SizedBox(height: 12),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: ElevatedButton(
+                              onPressed: isExpired ? null : () => _submitTutorResponse(index),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: isExpired ? Colors.grey : Colors.deepPurple,
+                              ),
+                              child: const Text('Enviar resposta', style: TextStyle(color: Colors.white)),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),

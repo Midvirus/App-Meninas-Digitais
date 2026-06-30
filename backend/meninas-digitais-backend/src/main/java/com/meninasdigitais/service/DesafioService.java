@@ -4,10 +4,12 @@ import com.meninasdigitais.dto.request.CriarDesafioRequest;
 import com.meninasdigitais.dto.request.FeedbackRespostaRequest;
 import com.meninasdigitais.dto.request.DestaqueRequest;
 import com.meninasdigitais.entity.Desafio;
+import com.meninasdigitais.entity.Notificacao;
 import com.meninasdigitais.entity.Resposta;
 import com.meninasdigitais.entity.Usuario;
 import com.meninasdigitais.enums.ChallengeStatus;
 import com.meninasdigitais.repository.DesafioRepository;
+import com.meninasdigitais.repository.NotificacaoRepository;
 import com.meninasdigitais.repository.RespostaRepository;
 import com.meninasdigitais.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +29,7 @@ public class DesafioService {
     private final DesafioRepository desafioRepository;
     private final RespostaRepository respostaRepository;
     private final UsuarioRepository usuarioRepository;
-    private final com.meninasdigitais.repository.NotificacaoRepository notificacaoRepository;
+    private final NotificacaoRepository notificacaoRepository;
 
     // RF04 e RF05 - criar e publicar desafio
     public Desafio criarDesafio(CriarDesafioRequest req, Usuario tutora) {
@@ -91,6 +93,18 @@ public class DesafioService {
         resposta.setFeedbackTutora(req.getFeedback());
         resposta.setFeedbackEm(LocalDateTime.now());
         resposta.setStatus(req.isAprovado() ? ChallengeStatus.VALIDADO : ChallengeStatus.ENVIADO);
+
+        // Criar notificação para a tutoranda
+        Notificacao notificacao = Notificacao.builder()
+                .usuario(resposta.getTutoranda())
+                .mensagem("Sua tutora avaliou sua resposta no desafio \"" 
+                          + resposta.getDesafio().getTitulo() + "\". Confira o feedback!")
+                .tipo("FEEDBACK_RECEBIDO")
+                .referenciaId(resposta.getId())
+                .lida(false)
+                .build();
+        notificacaoRepository.save(notificacao);
+
         return respostaRepository.save(resposta);
     }
 
