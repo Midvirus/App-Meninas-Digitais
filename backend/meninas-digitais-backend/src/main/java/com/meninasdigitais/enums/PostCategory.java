@@ -4,5 +4,9 @@ public enum PostCategory {
     MULHERES_NA_CIENCIA,
     CARREIRA,
     TECNOLOGIA,
-    PROGRAMACAO
+    PROGRAMACAO,
+    CIENCIA,
+    CURIOSIDADE,
+    INSPIRACAO,
+    OUTROS
 }

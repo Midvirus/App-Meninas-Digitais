@@ -178,20 +178,22 @@ class _PinboardPageState extends State<PinboardPage> {
     showDialog(
       context: context,
       builder: (dialogContext) => _AddPinDialog(
-        onAdd: (title, description, user, category, date, color, tutor) async {
+        onAdd: (title, description, category, date) async {
           try {
             // Map category to match backend Enum where possible
-            String backendCategory = 'GERAL';
-            final catUpper = category.toUpperCase();
-            if (catUpper.contains('MULHER') || catUpper.contains('CIÊNCIA') || catUpper.contains('CIENCIA')) {
-              backendCategory = 'MULHERES_NA_CIENCIA';
-            } else if (catUpper.contains('CARREIRA')) {
-              backendCategory = 'CARREIRA';
-            } else if (catUpper.contains('PROGRAMA')) {
-              backendCategory = 'PROGRAMACAO';
-            } else {
-              backendCategory = 'TECNOLOGIA'; // Default fallback
-            }
+            // String backendCategory = 'GERAL';
+            // final catUpper = category.toUpperCase();
+            // if (catUpper.contains('MULHER') || catUpper.contains('CIÊNCIA') || catUpper.contains('CIENCIA')) {
+            //   backendCategory = 'MULHERES_NA_CIENCIA';
+            // } else if (catUpper.contains('CARREIRA')) {
+            //   backendCategory = 'CARREIRA';
+            // } else if (catUpper.contains('PROGRAMA')) {
+            //   backendCategory = 'PROGRAMACAO';
+            // } else {
+            //   backendCategory = 'TECNOLOGIA'; // Default fallback
+            // }
+            
+            String backendCategory = category.toUpperCase().replaceAll('Ê', 'E').replaceAll('Ç', 'C').replaceAll('Ã', 'A').replaceAll('Á', 'A');
 
             await ApiClient.publicar({
               'titulo': title,
@@ -350,33 +352,9 @@ class _PinCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (pin.tutor != null) ...[
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white24,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                'Tutor: ${pin.tutor}',
-                                style: const TextStyle(
-                                  fontSize: 9,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                          ],
-
                           // Autor
                           Text(
-                            'Por ${pin.user}',
+                            'Tutor: ${pin.user}',
                             style: const TextStyle(
                               fontSize: 10,
                               color: Colors.white60,
@@ -457,7 +435,7 @@ class _PinCard extends StatelessWidget {
                             ),
                           ),
                                                     // Linha 1: botão apagar (no topo)
-                          if (GlobalState.userRole != 'Tutoranda')
+                          if (GlobalState.userRole?.toLowerCase() == 'admin')
                             InkWell(
                               onTap: onDelete,
                               borderRadius: BorderRadius.circular(999),
@@ -573,32 +551,11 @@ class _PinDetailsDialog extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  if (pin.tutor != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: RichText(
-                        text: TextSpan(
-                          children: [
-                            const TextSpan(
-                              text: 'Orientador: ',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                            TextSpan(
-                              text: pin.tutor,
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
                   RichText(
                     text: TextSpan(
                       children: [
                         const TextSpan(
-                          text: 'De: ',
+                          text: 'Tutor: ',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
@@ -671,7 +628,7 @@ class _PinDetailsDialog extends StatelessWidget {
 }
 
 class _AddPinDialog extends StatefulWidget {
-  final Function(String title, String description, String user, String category, DateTime date, Color color, String? tutor) onAdd;
+  final Function(String title, String description, String category, DateTime date) onAdd;
 
   const _AddPinDialog({required this.onAdd});
 
@@ -682,40 +639,22 @@ class _AddPinDialog extends StatefulWidget {
 class _AddPinDialogState extends State<_AddPinDialog> {
   late TextEditingController titleController;
   late TextEditingController descriptionController;
-  late TextEditingController userController;
-  late TextEditingController categoryController;
-  late TextEditingController tutorController;
   DateTime selectedDate = DateTime.now();
-  Color selectedColor = Colors.pink;
-
-  final List<Color> colors = [
-    Colors.pink,
-    Colors.purple,
-    Colors.orange,
-    Colors.blue,
-    Colors.green,
-    Colors.red,
-    Colors.yellow,
-    Colors.teal,
-  ];
+  String selectedCategory = 'Tecnologia';
+  
+  final List<String> categories = ['Tecnologia', 'Ciência', 'Curiosidade', 'Inspiração', 'Carreira', 'Outros'];
 
   @override
   void initState() {
     super.initState();
     titleController = TextEditingController();
     descriptionController = TextEditingController();
-    userController = TextEditingController();
-    categoryController = TextEditingController();
-    tutorController = TextEditingController();
   }
 
   @override
   void dispose() {
     titleController.dispose();
     descriptionController.dispose();
-    userController.dispose();
-    categoryController.dispose();
-    tutorController.dispose();
     super.dispose();
   }
 
@@ -760,32 +699,23 @@ class _AddPinDialogState extends State<_AddPinDialog> {
               maxLines: 2,
             ),
             const SizedBox(height: 12),
-            TextField(
-              controller: userController,
-              decoration: const InputDecoration(
-                labelText: 'Usuário/Autor',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 1,
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: categoryController,
+            DropdownButtonFormField<String>(
+              value: selectedCategory,
               decoration: const InputDecoration(
                 labelText: 'Categoria',
                 border: OutlineInputBorder(),
               ),
-              maxLines: 1,
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: tutorController,
-              decoration: const InputDecoration(
-                labelText: 'Orientador/Mentor (Opcional)',
-                border: OutlineInputBorder(),
-                hintText: 'Nome do orientador ou deixe em branco',
-              ),
-              maxLines: 1,
+              items: categories.map((String value) {
+                return DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(value),
+                );
+              }).toList(),
+              onChanged: (newValue) {
+                setState(() {
+                  selectedCategory = newValue!;
+                });
+              },
             ),
             const SizedBox(height: 12),
             Row(
@@ -802,33 +732,6 @@ class _AddPinDialogState extends State<_AddPinDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            const Text('Selecionar Cor:', style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: colors.map((color) {
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      selectedColor = color;
-                    });
-                  },
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: selectedColor == color ? Colors.black : Colors.transparent,
-                        width: 3,
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
           ],
         ),
       ),
@@ -839,15 +742,12 @@ class _AddPinDialogState extends State<_AddPinDialog> {
         ),
         TextButton(
           onPressed: () {
-            if (titleController.text.isNotEmpty && userController.text.isNotEmpty) {
+            if (titleController.text.isNotEmpty) {
               widget.onAdd(
                 titleController.text,
                 descriptionController.text,
-                userController.text,
-                categoryController.text.isNotEmpty ? categoryController.text : 'Geral',
+                selectedCategory,
                 selectedDate,
-                selectedColor,
-                tutorController.text.isNotEmpty ? tutorController.text : null,
               );
               Navigator.pop(context);
             }
