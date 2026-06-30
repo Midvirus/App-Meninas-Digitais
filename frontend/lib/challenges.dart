@@ -12,7 +12,7 @@ class ChallengesPage extends StatefulWidget {
   State<ChallengesPage> createState() => _ChallengesPageState();
 }
 
-enum TutorResponseType { multipleChoice, text, file }
+enum TutorResponseType { multipleChoice, text }
 
 class TutorChallenge {
   final String question;
@@ -127,15 +127,16 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
     }
   }
 
-  void _selectAnswer(int index, String? value) {
+  void _selectAnswer(int challengeId, String? value) {
     if (value == null) return;
     setState(() {
-      _selectedAnswers[index] = value;
+      _selectedAnswers[challengeId] = value;
     });
   }
 
-  void _submitResponse(int index) {
-    final selected = _selectedAnswers[index];
+  void _submitResponse(dynamic challenge) {
+    final challengeId = challenge['id'];
+    final selected = _selectedAnswers[challengeId];
     if (selected == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Escolha uma opção antes de enviar.')),
@@ -143,13 +144,12 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
       return;
     }
 
-    final challenge = globalChallenges[index];
     final isCorrect = selected == challenge['respostaCorreta'];
 
     setState(() {
-      if (!_answeredCorrectly.containsKey(index)) {
+      if (!_answeredCorrectly.containsKey(challengeId)) {
         _totalAttempts++;
-        _answeredCorrectly[index] = isCorrect;
+        _answeredCorrectly[challengeId] = isCorrect;
 
         if (isCorrect) {
           _correctAnswers++;
@@ -178,6 +178,7 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
                   : 'A resposta correta é "${challenge['respostaCorreta']}".',
             ),
             const SizedBox(height: 12),
+            Text(challenge['justificativa'] ?? 'Gabarito da tutora.'),
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
@@ -211,23 +212,21 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
     });
   }
 
-  TextEditingController _getTutorTextController(int index) {
-    return _tutorTextControllers.putIfAbsent(index, () => TextEditingController());
+  TextEditingController _getTutorTextController(int challengeId) {
+    if (!_tutorTextControllers.containsKey(challengeId)) {
+      _tutorTextControllers[challengeId] = TextEditingController();
+    }
+    return _tutorTextControllers[challengeId]!;
   }
 
-  Future<void> _selectTutorFile(int index) async {
+  void _selectTutorFile(int challengeId) async {
     try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg'],
-        withData: true,
-      );
-
-      if (result != null && result.files.isNotEmpty) {
+      final result = await FilePicker.platform.pickFiles();
+      if (result != null) {
         final picked = result.files.first;
         setState(() {
-          _tutorPickedFiles[index] = picked;
-          _tutorFileNames[index] = picked.name;
+          _tutorPickedFiles[challengeId] = picked;
+          _tutorFileNames[challengeId] = picked.name;
         });
       }
     } catch (e) {
@@ -237,8 +236,7 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
     }
   }
 
-  void _submitTutorResponse(int index) async {
-    final challenge = _apiChallenges[index];
+  void _submitTutorResponse(dynamic challenge) async {
     final responseType = challenge['tipoResposta'];
     final desafioId = challenge['id'];
     String? responseText;
@@ -246,7 +244,7 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
 
     // A API só retorna os tipos mapeados em ResponseType: TEXTO, ARQUIVO, CODIGO, IMAGEM
     if (responseType == 'TEXTO' || responseType == 'CODIGO') {
-      responseText = _getTutorTextController(index).text.trim();
+      responseText = _getTutorTextController(desafioId).text.trim();
       if (responseText.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Digite sua resposta antes de enviar.')),
@@ -254,7 +252,7 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
         return;
       }
     } else if (responseType == 'ARQUIVO' || responseType == 'IMAGEM') {
-      final picked = _tutorPickedFiles[index];
+      final picked = _tutorPickedFiles[desafioId];
       if (picked == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Selecione um arquivo antes de enviar.')),
@@ -271,7 +269,7 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
           await ApiClient.enviarResposta(desafioId, filePath: filePath);
         } else {
            // Usar bytes se for web, no flutter seria picked.bytes
-          final picked = _tutorPickedFiles[index];
+          final picked = _tutorPickedFiles[desafioId];
           await ApiClient.enviarResposta(
             desafioId,
             fileBytes: picked?.bytes,
@@ -541,7 +539,7 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
     );
   }
 
-  void _confirmRemoveChallenge(int index) {
+  void _confirmRemoveChallenge(int challengeId) {
     showDialog(
       context: context,
       builder: (context) {
@@ -557,14 +555,23 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
             ),
             ElevatedButton(
               onPressed: () {
-                final challengeId = globalChallenges[index]['id'];
-                ApiClient.removerDesafio(challengeId).then((_) {
-                  _loadApiChallenges();
-                }).catchError((e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Erro ao remover: $e')),
-                  );
-                });
+                if (GlobalState.userRole?.toLowerCase() == 'tutor') {
+                  ApiClient.removerDesafioTutor(challengeId).then((_) {
+                    _loadApiChallenges();
+                  }).catchError((e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Erro ao remover: $e')),
+                    );
+                  });
+                } else {
+                  ApiClient.removerDesafio(challengeId).then((_) {
+                    _loadApiChallenges();
+                  }).catchError((e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Erro ao remover: $e')),
+                    );
+                  });
+                }
                 Navigator.of(context).pop();
               },
               style: ElevatedButton.styleFrom(
@@ -620,10 +627,6 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
                           DropdownMenuItem(
                             value: TutorResponseType.text,
                             child: Text('Texto'),
-                          ),
-                          DropdownMenuItem(
-                            value: TutorResponseType.file,
-                            child: Text('Arquivo'),
                           ),
                         ],
                         onChanged: (value) {
@@ -760,8 +763,6 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
 
                     if (selectedType == TutorResponseType.text) {
                       apiResponseType = 'TEXTO';
-                    } else if (selectedType == TutorResponseType.file) {
-                      apiResponseType = 'ARQUIVO';
                     } else if (selectedType == TutorResponseType.multipleChoice) {
                       apiResponseType = 'MULTIPLA_ESCOLHA';
                     }
@@ -1140,7 +1141,7 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
                               IconButton(
                                 icon: const Icon(Icons.delete, color: Colors.redAccent),
                                 tooltip: 'Remover desafio',
-                                onPressed: () => _confirmRemoveChallenge(index),
+                                onPressed: () => _confirmRemoveChallenge(challenge['id']),
                               ),
                           ],
                         ),
@@ -1161,18 +1162,18 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
                         ...(challenge['opcoes'] as List<dynamic>? ?? []).map((option) {
                           return RadioListTile<String>(
                             value: option.toString(),
-                            groupValue: _selectedAnswers[index],
+                            groupValue: _selectedAnswers[challenge['id']],
                             title: Text(option.toString()),
                             activeColor: Colors.deepPurple,
                             contentPadding: EdgeInsets.zero,
-                            onChanged: isExpired ? null : (value) => _selectAnswer(index, value),
+                            onChanged: isExpired ? null : (value) => _selectAnswer(challenge['id'], value),
                           );
                         }).toList(),
                         const SizedBox(height: 12),
                         Align(
                           alignment: Alignment.centerRight,
                           child: ElevatedButton(
-                            onPressed: isExpired ? null : () => _submitResponse(index),
+                            onPressed: isExpired ? null : () => _submitResponse(challenge),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: isExpired ? Colors.grey : Colors.deepPurple,
                             ),
@@ -1203,13 +1204,13 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
     );
   }
 
-  Widget _buildTutorResponseWidget(int index, bool isExpired) {
-    final challenge = _apiChallenges[index];
+  Widget _buildTutorResponseWidget(dynamic challenge, bool isExpired) {
+    final challengeId = challenge['id'];
     final responseType = challenge['tipoResposta'];
 
     if (responseType == 'TEXTO' || responseType == 'CODIGO') {
       return TextField(
-        controller: _getTutorTextController(index),
+        controller: _getTutorTextController(challengeId),
         minLines: 3,
         maxLines: 6,
         enabled: !isExpired,
@@ -1226,34 +1227,18 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
         children: (challenge['opcoes'] as List<dynamic>? ?? []).map((option) {
           return RadioListTile<String>(
             value: option.toString(),
-            groupValue: _selectedAnswers[index],
+            groupValue: _selectedAnswers[challengeId],
             title: Text(option.toString()),
             activeColor: Colors.deepPurple,
             contentPadding: EdgeInsets.zero,
-            onChanged: isExpired ? null : (value) => _selectAnswer(index, value),
+            onChanged: isExpired ? null : (value) => _selectAnswer(challengeId, value),
           );
         }).toList(),
       );
     }
 
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ElevatedButton(
-          onPressed: isExpired ? null : () => _selectTutorFile(index),
-          style: ElevatedButton.styleFrom(backgroundColor: isExpired ? Colors.grey : Colors.deepPurple),
-          child: const Text('Selecionar arquivo', style: TextStyle(color: Colors.white)),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          _tutorFileNames[index] ?? 'Nenhum arquivo selecionado',
-          style: TextStyle(
-            color: _tutorFileNames[index] == null ? Colors.grey : Colors.black,
-          ),
-        ),
-      ],
-    );
+    return const SizedBox.shrink();
   }
 
   Widget _buildTutorChallenges(BuildContext context) {
@@ -1332,6 +1317,12 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
                                 color: Colors.deepPurple,
                               ),
                             ),
+                            if (GlobalState.userRole?.toLowerCase() == 'tutor' && challenge['tutora']?['email'] == GlobalState.userEmail)
+                              IconButton(
+                                icon: const Icon(Icons.delete, color: Colors.redAccent),
+                                tooltip: 'Remover desafio',
+                                onPressed: () => _confirmRemoveChallenge(challenge['id']),
+                              ),
                           ],
                         ),
                         if (isExpired)
@@ -1402,12 +1393,12 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
                             ),
                           ]
                         ] else ...[
-                          _buildTutorResponseWidget(index, isExpired),
+                          _buildTutorResponseWidget(challenge, isExpired),
                           const SizedBox(height: 12),
                           Align(
                             alignment: Alignment.centerRight,
                             child: ElevatedButton(
-                              onPressed: isExpired ? null : () => _submitTutorResponse(index),
+                              onPressed: isExpired ? null : () => _submitTutorResponse(challenge),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: isExpired ? Colors.grey : Colors.deepPurple,
                               ),

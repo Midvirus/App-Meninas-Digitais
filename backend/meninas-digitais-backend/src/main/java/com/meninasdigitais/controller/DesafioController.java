@@ -48,6 +48,13 @@ class DesafioTutoraController {
         return ResponseEntity.ok(desafioService.listarRespostasPorDesafio(desafioId));
     }
 
+    // Remover o próprio desafio
+    @DeleteMapping("/{desafioId}")
+    public ResponseEntity<Void> removerDesafio(@PathVariable Long desafioId, @AuthenticationPrincipal Usuario tutora) {
+        desafioService.desativarDesafioPorTutora(desafioId, tutora);
+        return ResponseEntity.noContent().build();
+    }
+
     // RF08 - dar feedback
     @PatchMapping("/respostas/{respostaId}/feedback")
     public ResponseEntity<Resposta> feedback(@PathVariable Long respostaId,

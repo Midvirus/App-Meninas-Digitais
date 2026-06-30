@@ -427,6 +427,11 @@ class ApiClient {
     return data as Map<String, dynamic>? ?? {};
   }
 
+  /// DELETE /api/tutora/desafios/{desafioId}
+  static Future<void> removerDesafioTutor(dynamic desafioId) async {
+    await delete('/api/tutora/desafios/$desafioId');
+  }
+
   /// PATCH /api/tutoranda/desafios/respostas/{respostaId}/responder-destaque
   static Future<Map<String, dynamic>> responderSolicitacaoDestaque(
     dynamic respostaId,

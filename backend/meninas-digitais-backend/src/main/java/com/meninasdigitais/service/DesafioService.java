@@ -176,6 +176,16 @@ public class DesafioService {
         desafioRepository.save(d);
     }
 
+    public void desativarDesafioPorTutora(Long desafioId, Usuario tutora) {
+        Desafio d = desafioRepository.findById(desafioId)
+                .orElseThrow(() -> new RuntimeException("Desafio não encontrado."));
+        if (!d.getTutora().getId().equals(tutora.getId())) {
+            throw new RuntimeException("Você não tem permissão para remover este desafio.");
+        }
+        d.setAtivo(false);
+        desafioRepository.save(d);
+    }
+
     // RF12 - mural de destaques
     public List<Resposta> listarDestaques() {
         return respostaRepository.findByEmDestaqueTrue();
