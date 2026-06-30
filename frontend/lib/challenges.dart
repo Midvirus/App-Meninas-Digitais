@@ -242,12 +242,21 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
     String? responseText;
     String? filePath;
 
-    // A API só retorna os tipos mapeados em ResponseType: TEXTO, ARQUIVO, CODIGO, IMAGEM
+    // A API só retorna os tipos mapeados em ResponseType: TEXTO, ARQUIVO, CODIGO, IMAGEM, MULTIPLA_ESCOLHA
     if (responseType == 'TEXTO' || responseType == 'CODIGO') {
       responseText = _getTutorTextController(desafioId).text.trim();
       if (responseText.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Digite sua resposta antes de enviar.')),
+        );
+        return;
+      }
+    } else if (responseType == 'MULTIPLA_ESCOLHA') {
+      // Lê a opção selecionada no RadioListTile (gravada em _selectedAnswers)
+      responseText = _selectedAnswers[desafioId];
+      if (responseText == null || responseText.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Escolha uma opção antes de enviar.')),
         );
         return;
       }

@@ -55,10 +55,12 @@ class _FeedbackPageState extends State<FeedbackPage>
   List<dynamic> _apiSubmissions = [];
   bool _isLoading = true;
 
+  // Uma resposta está pendente se ainda não recebeu feedbackTutora.
+  // Está corrigida se já tem feedbackTutora (campo real da API) independente do status.
   List<dynamic> get _pending =>
-      _apiSubmissions.where((s) => s['feedback'] == null && _matchesSearch(s)).toList();
+      _apiSubmissions.where((s) => (s['feedbackTutora'] == null) && _matchesSearch(s)).toList();
   List<dynamic> get _reviewed =>
-      _apiSubmissions.where((s) => s['feedback'] != null && _matchesSearch(s)).toList();
+      _apiSubmissions.where((s) => (s['feedbackTutora'] != null) && _matchesSearch(s)).toList();
 
   bool _matchesSearch(dynamic s) {
     if (_searchQuery.isEmpty) return true;
@@ -84,7 +86,14 @@ class _FeedbackPageState extends State<FeedbackPage>
       List<dynamic> allResponses = [];
       for (var challenge in challenges) {
         final responses = await ApiClient.respostasDoDesafio(challenge['id']);
-        allResponses.addAll(responses);
+        for (var resp in responses) {
+          // @JsonBackReference omite o desafio da serialização da Resposta.
+          // Injetamos o objeto challenge que já temos em memória para que
+          // tipoResposta, opcoes, titulo e descricao fiquem disponíveis no front.
+          final mutableResp = Map<String, dynamic>.from(resp as Map);
+          mutableResp['desafio'] = challenge;
+          allResponses.add(mutableResp);
+        }
       }
       if (mounted) {
         setState(() {
@@ -121,14 +130,55 @@ class _FeedbackPageState extends State<FeedbackPage>
         '${dt.minute.toString().padLeft(2, '0')}';
   }
 
+  /// Parse de data compatível com Spring Boot sem configuração Jackson:
+  /// - ISO string: "2024-06-30T19:47:16" → DateTime.parse
+  /// - Array numérico: [2024, 6, 30, 19, 47, 16] → monta DateTime manualmente
+  DateTime _parseDateFromApi(dynamic value) {
+    if (value == null) return DateTime.now();
+    if (value is String) {
+      return DateTime.tryParse(value) ?? DateTime.now();
+    }
+    if (value is List && value.length >= 3) {
+      return DateTime(
+        value[0] as int,             // year
+        value[1] as int,             // month
+        value[2] as int,             // day
+        value.length > 3 ? value[3] as int : 0, // hour
+        value.length > 4 ? value[4] as int : 0, // minute
+        value.length > 5 ? value[5] as int : 0, // second
+      );
+    }
+    return DateTime.now();
+  }
+
+  /// Retorna o label de tipo de resposta baseado no campo tipoResposta do desafio
   String _responseLabel(dynamic submission) {
-    if (submission['arquivoPath'] != null || submission['linkExterno'] != null) return 'Arquivo';
-    return 'Texto';
+    final tipo = (submission['desafio']?['tipoResposta'] ?? '').toString().toUpperCase();
+    switch (tipo) {
+      case 'MULTIPLA_ESCOLHA': return 'Múltipla Escolha';
+      case 'ARQUIVO': return 'Arquivo';
+      case 'IMAGEM': return 'Imagem';
+      case 'CODIGO': return 'Código';
+      case 'TEXTO': return 'Texto';
+      default:
+        // Fallback por conteúdo
+        if (submission['arquivoUrl'] != null || submission['linkExterno'] != null) return 'Arquivo';
+        return 'Texto';
+    }
   }
 
   IconData _responseIcon(dynamic submission) {
-    if (submission['arquivoPath'] != null || submission['linkExterno'] != null) return Icons.attach_file;
-    return Icons.text_snippet;
+    final tipo = (submission['desafio']?['tipoResposta'] ?? '').toString().toUpperCase();
+    switch (tipo) {
+      case 'MULTIPLA_ESCOLHA': return Icons.checklist;
+      case 'ARQUIVO': return Icons.attach_file;
+      case 'IMAGEM': return Icons.image;
+      case 'CODIGO': return Icons.code;
+      case 'TEXTO': return Icons.text_snippet;
+      default:
+        if (submission['arquivoUrl'] != null || submission['linkExterno'] != null) return Icons.attach_file;
+        return Icons.text_snippet;
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -136,19 +186,73 @@ class _FeedbackPageState extends State<FeedbackPage>
   // ---------------------------------------------------------------------------
 
   Widget _responseContent(dynamic s) {
-    final text = s['textoResposta'] ?? s['arquivoPath'] ?? s['linkExterno'] ?? '';
-    if (s['arquivoPath'] != null || s['linkExterno'] != null) {
+    final tipo = (s['desafio']?['tipoResposta'] ?? '').toString().toUpperCase();
+    final textoResposta = s['textoResposta'] ?? '';
+    final arquivoUrl = s['arquivoUrl'] ?? s['arquivoPath'] ?? s['linkExterno'];
+
+    if (tipo == 'MULTIPLA_ESCOLHA') {
+      // Para múltipla escolha, exibe a opção selecionada em destaque
+      final opcoes = (s['desafio']?['opcoes'] as List<dynamic>?) ?? [];
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Opção selecionada:', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+          const SizedBox(height: 4),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.deepPurple.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.deepPurple.withOpacity(0.4)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.radio_button_checked, size: 16, color: Colors.deepPurple),
+                const SizedBox(width: 8),
+                Expanded(child: Text(textoResposta.isNotEmpty ? textoResposta : '(sem resposta)',
+                    style: const TextStyle(fontWeight: FontWeight.w600))),
+              ],
+            ),
+          ),
+          if (opcoes.isNotEmpty) ...[  
+            const SizedBox(height: 8),
+            Text('Alternativas disponíveis:', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            const SizedBox(height: 4),
+            ...opcoes.map((op) => Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(
+                children: [
+                  Icon(
+                    op.toString() == textoResposta ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                    size: 14,
+                    color: op.toString() == textoResposta ? Colors.deepPurple : Colors.grey,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(child: Text(op.toString(), style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: op.toString() == textoResposta ? FontWeight.bold : FontWeight.normal,
+                    color: op.toString() == textoResposta ? Colors.deepPurple : Colors.black87,
+                  ))),
+                ],
+              ),
+            )),
+          ],
+        ],
+      );
+    }
+
+    if (arquivoUrl != null) {
       return Row(
         children: [
           const Icon(Icons.insert_drive_file, size: 18, color: Colors.deepPurple),
           const SizedBox(width: 6),
           Expanded(
-            child: Text(text, style: const TextStyle(fontStyle: FontStyle.italic)),
+            child: Text(arquivoUrl.toString(), style: const TextStyle(fontStyle: FontStyle.italic)),
           ),
         ],
       );
     }
-    return Text(text);
+    return Text(textoResposta.isNotEmpty ? textoResposta : '(sem resposta)');
   }
 
   // ---------------------------------------------------------------------------
@@ -181,19 +285,28 @@ class _FeedbackPageState extends State<FeedbackPage>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Meta info
+                    // Meta info: nome na primeira linha, data na segunda
                     Row(
                       children: [
                         const Icon(Icons.person, size: 15, color: Colors.deepPurple),
                         const SizedBox(width: 4),
-                        Text(submission['tutoranda']?['nome'] ?? 'Desconhecido',
+                        Expanded(
+                          child: Text(
+                            submission['tutoranda']?['nome'] ?? 'Desconhecido',
                             style: const TextStyle(
                                 fontWeight: FontWeight.w600,
-                                color: Colors.deepPurple)),
-                        const SizedBox(width: 12),
+                                color: Colors.deepPurple),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
                         Icon(Icons.calendar_today, size: 13, color: Colors.grey[500]),
                         const SizedBox(width: 4),
-                        Text(_formatDate(DateTime.tryParse(submission['enviadoEm'] ?? '') ?? DateTime.now()),
+                        Text(_formatDate(_parseDateFromApi(submission['enviadoEm'])),
                             style: TextStyle(fontSize: 12, color: Colors.grey[500])),
                       ],
                     ),
@@ -220,11 +333,11 @@ class _FeedbackPageState extends State<FeedbackPage>
                     // Response
                     Row(
                       children: [
-                        Icon(_responseIcon(submission.responseType),
+                        Icon(_responseIcon(submission),
                             size: 14, color: Colors.grey[600]),
                         const SizedBox(width: 4),
                         Text(
-                          'Resposta (${_responseLabel(submission.responseType)})',
+                          'Resposta (${_responseLabel(submission)})',
                           style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
@@ -309,7 +422,7 @@ class _FeedbackPageState extends State<FeedbackPage>
                   style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: gradeColor,
-                      fontSize: 13),
+                      fontSize: 11),
                 ),
               ),
             ],
@@ -334,7 +447,7 @@ class _FeedbackPageState extends State<FeedbackPage>
                         const SizedBox(width: 12),
                         Icon(Icons.calendar_today, size: 13, color: Colors.grey[500]),
                         const SizedBox(width: 4),
-                        Text(_formatDate(DateTime.tryParse(submission['enviadoEm'] ?? '') ?? DateTime.now()),
+                        Text(_formatDate(_parseDateFromApi(submission['enviadoEm'])),
                             style: TextStyle(fontSize: 12, color: Colors.grey[500])),
                       ],
                     ),
@@ -407,7 +520,7 @@ class _FeedbackPageState extends State<FeedbackPage>
                         border:
                             Border.all(color: Colors.deepPurple.withOpacity(0.3)),
                       ),
-                      child: Text(submission.feedbackText ?? '',
+                      child: Text(submission['feedbackTutora'] ?? '',
                           style: const TextStyle(fontSize: 14)),
                     ),
                   ],
@@ -508,8 +621,9 @@ class _FeedbackPageState extends State<FeedbackPage>
 
   void _openFeedbackDialog(dynamic submission) {
     final feedbackController =
-        TextEditingController(text: submission['feedback'] ?? '');
-    bool isAprovado = (submission['status'] == 'APROVADO');
+        TextEditingController(text: submission['feedbackTutora'] ?? '');
+    // O backend usa o status VALIDADO quando aprovado
+    bool isAprovado = (submission['status'] == 'VALIDADO');
     bool isSending = false;
 
     showDialog(
@@ -678,6 +792,55 @@ class _FeedbackPageState extends State<FeedbackPage>
   }
 
   // ---------------------------------------------------------------------------
+  // Card response preview helper (truncated, used in list cards)
+  // ---------------------------------------------------------------------------
+
+  Widget _buildCardResponsePreview(dynamic s, {int maxLines = 2}) {
+    final tipo = (s['desafio']?['tipoResposta'] ?? '').toString().toUpperCase();
+    final texto = s['textoResposta'] ?? '';
+    final arquivoUrl = s['arquivoUrl'] ?? s['arquivoPath'] ?? s['linkExterno'];
+
+    if (tipo == 'MULTIPLA_ESCOLHA') {
+      return Row(
+        children: [
+          const Icon(Icons.radio_button_checked, size: 14, color: Colors.deepPurple),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              texto.isNotEmpty ? texto : '(sem resposta)',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.deepPurple),
+            ),
+          ),
+        ],
+      );
+    }
+    if (arquivoUrl != null) {
+      return Row(
+        children: [
+          const Icon(Icons.insert_drive_file, size: 14, color: Colors.deepPurple),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              arquivoUrl.toString(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontStyle: FontStyle.italic, fontSize: 13),
+            ),
+          ),
+        ],
+      );
+    }
+    return Text(
+      texto.isNotEmpty ? texto : '(sem resposta)',
+      maxLines: maxLines,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(fontSize: 13),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
   // Compact pending card
   // ---------------------------------------------------------------------------
 
@@ -691,45 +854,49 @@ class _FeedbackPageState extends State<FeedbackPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header row: badge + type + date
+            // Header: título + data na primeira linha, tipo na segunda
             Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.deepPurple,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(s['desafio']?['titulo'] ?? '',
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.deepPurple,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      s['desafio']?['titulo'] ?? '',
                       style: const TextStyle(
                           color: Colors.white,
                           fontSize: 12,
-                          fontWeight: FontWeight.bold)),
+                          fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.orange),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(_responseIcon(s),
-                          size: 12, color: Colors.orange[700]),
-                      const SizedBox(width: 4),
-                      Text(_responseLabel(s),
-                          style: TextStyle(
-                              fontSize: 11, color: Colors.orange[700])),
-                    ],
-                  ),
-                ),
-                const Spacer(),
-                Text(_formatDate(DateTime.tryParse(s['enviadoEm'] ?? '') ?? DateTime.now()),
+                Text(_formatDate(_parseDateFromApi(s['enviadoEm'])),
                     style: TextStyle(fontSize: 11, color: Colors.grey[500])),
               ],
+            ),
+            const SizedBox(height: 6),
+            // Tipo de resposta na segunda linha
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.orange),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(_responseIcon(s), size: 12, color: Colors.orange[700]),
+                  const SizedBox(width: 4),
+                  Text(_responseLabel(s),
+                      style: TextStyle(fontSize: 11, color: Colors.orange[700])),
+                ],
+              ),
             ),
             const SizedBox(height: 10),
             // Question (truncated)
@@ -775,27 +942,7 @@ class _FeedbackPageState extends State<FeedbackPage>
                     ],
                   ),
                   const SizedBox(height: 4),
-                  (s['arquivoPath'] != null || s['linkExterno'] != null)
-                      ? Row(
-                          children: [
-                            const Icon(Icons.insert_drive_file,
-                                size: 16, color: Colors.deepPurple),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(s['textoResposta'] ?? s['arquivoPath'] ?? s['linkExterno'] ?? '',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                      fontStyle: FontStyle.italic, fontSize: 13)),
-                            ),
-                          ],
-                        )
-                      : Text(
-                          s['textoResposta'] ?? '',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 13),
-                        ),
+                  _buildCardResponsePreview(s, maxLines: 1),
                 ],
               ),
             ),
@@ -853,42 +1000,27 @@ class _FeedbackPageState extends State<FeedbackPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header row
+            // Header: título + status na primeira linha, tipo na segunda
             Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.green,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(s['desafio']?['titulo'] ?? '',
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.green,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      s['desafio']?['titulo'] ?? '',
                       style: const TextStyle(
                           color: Colors.white,
                           fontSize: 12,
-                          fontWeight: FontWeight.bold)),
+                          fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.grey),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(_responseIcon(s),
-                          size: 12, color: Colors.grey[600]),
-                      const SizedBox(width: 4),
-                      Text(_responseLabel(s),
-                          style: TextStyle(
-                              fontSize: 11, color: Colors.grey[600])),
-                    ],
-                  ),
-                ),
-                const Spacer(),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
@@ -907,7 +1039,26 @@ class _FeedbackPageState extends State<FeedbackPage>
               ],
             ),
             const SizedBox(height: 6),
-            Text(_formatDate(DateTime.tryParse(s['enviadoEm'] ?? '') ?? DateTime.now()),
+            // Tipo de resposta na segunda linha
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.grey.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.grey),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(_responseIcon(s), size: 12, color: Colors.grey[600]),
+                  const SizedBox(width: 4),
+                  Text(_responseLabel(s),
+                      style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                ],
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(_formatDate(_parseDateFromApi(s['enviadoEm'])),
                 style: TextStyle(fontSize: 11, color: Colors.grey[500])),
             const SizedBox(height: 10),
             // Question (truncated)
@@ -953,26 +1104,7 @@ class _FeedbackPageState extends State<FeedbackPage>
                     ],
                   ),
                   const SizedBox(height: 4),
-                  (s['arquivoPath'] != null || s['linkExterno'] != null)
-                      ? Row(
-                          children: [
-                            const Icon(Icons.insert_drive_file,
-                                size: 16, color: Colors.deepPurple),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(s['textoResposta'] ?? s['arquivoPath'] ?? s['linkExterno'] ?? '',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                      fontStyle: FontStyle.italic,
-                                      fontSize: 13)),
-                            ),
-                          ],
-                        )
-                      : Text(s['textoResposta'] ?? '',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 13)),
+                  _buildCardResponsePreview(s, maxLines: 2),
                 ],
               ),
             ),

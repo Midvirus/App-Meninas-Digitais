@@ -275,29 +275,55 @@ class ApiClient {
     List<int>? fileBytes,
     String? fileName,
   }) async {
-    final queryParams = <String>[];
-    if (textoResposta != null)
-      queryParams.add('textoResposta=${Uri.encodeComponent(textoResposta)}');
-    if (linkExterno != null)
-      queryParams.add('linkExterno=${Uri.encodeComponent(linkExterno)}');
+    final path = '/api/tutoranda/desafios/$desafioId/resposta';
 
-    final queryString = queryParams.isNotEmpty
-        ? '?${queryParams.join('&')}'
-        : '';
-    final path = '/api/tutoranda/desafios/$desafioId/resposta$queryString';
+    // Verifica se tem arquivo para enviar
+    final temArquivo = filePath != null || (fileBytes != null && fileName != null);
 
-    List<http.MultipartFile>? files;
-    if (filePath != null) {
-      files = [await http.MultipartFile.fromPath('arquivo', filePath)];
-    } else if (fileBytes != null && fileName != null) {
-      files = [
-        http.MultipartFile.fromBytes('arquivo', fileBytes, filename: fileName),
-      ];
+    if (temArquivo) {
+      // Envia como multipart somente quando realmente tem arquivo
+      // textoResposta e linkExterno vão como fields do form (não query params)
+      final Map<String, String> fields = {};
+      if (textoResposta != null) fields['textoResposta'] = textoResposta;
+      if (linkExterno != null) fields['linkExterno'] = linkExterno;
+
+      List<http.MultipartFile>? files;
+      if (filePath != null) {
+        files = [await http.MultipartFile.fromPath('arquivo', filePath)];
+      } else if (fileBytes != null && fileName != null) {
+        files = [
+          http.MultipartFile.fromBytes('arquivo', fileBytes, filename: fileName),
+        ];
+      }
+
+      final data = await _multipartRequest('POST', path, fields: fields.isEmpty ? null : fields, files: files);
+      return data as Map<String, dynamic>? ?? {};
+    } else {
+      // Sem arquivo: usa query params como o Spring @RequestParam espera
+      final queryParams = <String>[];
+      if (textoResposta != null)
+        queryParams.add('textoResposta=${Uri.encodeComponent(textoResposta)}');
+      if (linkExterno != null)
+        queryParams.add('linkExterno=${Uri.encodeComponent(linkExterno)}');
+
+      final queryString = queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
+      final fullPath = '$path$queryString';
+
+      // POST simples sem body — o Spring lê os parâmetros da URL
+      _logRequest('POST', fullPath);
+      final response = await http.post(
+        Uri.parse('$baseUrl$fullPath'),
+        headers: {
+          'Authorization': GlobalState.authToken != null ? 'Bearer ${GlobalState.authToken}' : '',
+          'Accept': 'application/json',
+        },
+      );
+      _checkResponse(response);
+      if (response.body.isEmpty) return {};
+      return jsonDecode(response.body) as Map<String, dynamic>? ?? {};
     }
-
-    final data = await _multipartRequest('POST', path, files: files);
-    return data as Map<String, dynamic>? ?? {};
   }
+
 
   /// GET /api/tutoranda/desafios/minhas-respostas
   static Future<List<dynamic>> minhasRespostas() async {
