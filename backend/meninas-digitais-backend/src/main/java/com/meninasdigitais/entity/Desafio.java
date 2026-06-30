@@ -1,5 +1,7 @@
 package com.meninasdigitais.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.meninasdigitais.enums.DifficultyLevel;
 import com.meninasdigitais.enums.ResponseType;
 import jakarta.persistence.*;
@@ -70,6 +72,7 @@ public class Desafio {
 
     @ManyToOne
     @JoinColumn(name = "tutora_id", nullable = false)
+    @JsonIgnoreProperties({"senha", "authorities", "tutora"})
     private Usuario tutora;
 
     @Column(name = "criado_em", updatable = false)
@@ -79,10 +82,12 @@ public class Desafio {
     @ManyToMany
     @JoinTable(name = "desafio_tutorandas", joinColumns = @JoinColumn(name = "desafio_id"), inverseJoinColumns = @JoinColumn(name = "tutoranda_id"))
     @Builder.Default
+    @JsonIgnoreProperties({"senha", "authorities", "tutora"})
     private List<Usuario> tutorandasEspecificas = new ArrayList<>();
 
     @OneToMany(mappedBy = "desafio", cascade = CascadeType.ALL)
     @Builder.Default
+    @JsonManagedReference
     private List<Resposta> respostas = new ArrayList<>();
 
     @PrePersist

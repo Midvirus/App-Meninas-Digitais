@@ -1,5 +1,7 @@
 package com.meninasdigitais.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.meninasdigitais.enums.ChallengeStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -27,10 +29,12 @@ public class Resposta {
 
     @ManyToOne
     @JoinColumn(name = "desafio_id", nullable = false)
+    @JsonBackReference
     private Desafio desafio;
 
     @ManyToOne
     @JoinColumn(name = "tutoranda_id", nullable = false)
+    @JsonIgnoreProperties({"senha", "authorities", "tutora"})
     private Usuario tutoranda;
 
     // RF06 - conteúdo da resposta

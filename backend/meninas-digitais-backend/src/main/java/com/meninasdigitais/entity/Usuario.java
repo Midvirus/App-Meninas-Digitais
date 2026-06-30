@@ -1,5 +1,7 @@
 package com.meninasdigitais.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.meninasdigitais.enums.Role;
 import jakarta.persistence.*;
 import lombok.*;
@@ -36,6 +38,7 @@ public class Usuario implements UserDetails {
     private String email;
 
     @Column(nullable = false)
+    @JsonIgnore
     private String senha;
 
     @Column(name = "escola_instituicao")
@@ -67,6 +70,7 @@ public class Usuario implements UserDetails {
     // Relacionamento tutora com tutorandas
     @ManyToOne
     @JoinColumn(name = "tutora_id")
+    @JsonIgnoreProperties({"senha", "authorities", "tutora"})
     private Usuario tutora;
 
     @PrePersist
@@ -88,6 +92,7 @@ public class Usuario implements UserDetails {
     }
 
     @Override
+    @JsonIgnore
     public String getPassword() {
         return senha;
     }
