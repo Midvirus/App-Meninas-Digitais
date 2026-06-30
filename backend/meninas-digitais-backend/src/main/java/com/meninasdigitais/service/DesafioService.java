@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.scheduling.annotation.Scheduled;
 
 @Service
 @RequiredArgsConstructor
@@ -56,12 +57,15 @@ public class DesafioService {
     public List<Desafio> listarDesafiosParaTutoranda(Long tutorandaId, Long tutoraId) {
         List<Desafio> desafios = new ArrayList<>();
 
-        // Busca desafios para todas as tutorandas (da tutora vinculada)
+        // 1. Busca todos os desafios globais do sistema (paraTodasTutorandas = true)
+        desafios.addAll(desafioRepository.findByParaTodasTutorandasTrueAndAtivo(true));
+
+        // 2. Busca todos os desafios criados pela tutora dessa tutoranda (paraTodasTutorandas = false)
         if (tutoraId != null) {
-            desafios.addAll(desafioRepository.findByTutoraIdAndParaTodasTutorandasTrueAndAtivo(tutoraId, true));
+            desafios.addAll(desafioRepository.findByTutoraIdAndAtivo(tutoraId, true));
         }
 
-        // Busca desafios específicos para essa tutoranda
+        // 3. Busca desafios específicos para essa tutoranda (caso existam atribuições específicas)
         desafios.addAll(desafioRepository.findDesafiosEspecificosByTutorandaId(tutorandaId));
 
         // Remove duplicatas caso o mesmo desafio apareça nas duas buscas
@@ -156,5 +160,17 @@ public class DesafioService {
     // RF12 - mural de destaques
     public List<Resposta> listarDestaques() {
         return respostaRepository.findByEmDestaqueTrue();
+    }
+
+    // Tarefa agendada para limpar desafios vencidos há mais de 1 semana
+    @Scheduled(cron = "0 0 0 * * ?") // Executa todos os dias à meia-noite
+    public void limparDesafiosVencidos() {
+        LocalDateTime umaSemanaAtras = LocalDateTime.now().minusDays(7);
+        List<Desafio> todos = desafioRepository.findAll();
+        for (Desafio d : todos) {
+            if (d.getPrazoEntrega() != null && d.getPrazoEntrega().isBefore(umaSemanaAtras)) {
+                desafioRepository.delete(d);
+            }
+        }
     }
 }

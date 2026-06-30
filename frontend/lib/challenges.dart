@@ -311,6 +311,7 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
     ];
 
     int? selectedCorrectIndex = 0;
+    DateTime? selectedDate;
 
     showDialog(
       context: context,
@@ -409,6 +410,30 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
                           );
                         }),
                       ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          const Text('Prazo Máximo: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                          Text(selectedDate == null ? 'Não definido' : '${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}'),
+                          const Spacer(),
+                          TextButton(
+                            onPressed: () async {
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: DateTime.now(),
+                                firstDate: DateTime.now(),
+                                lastDate: DateTime.now().add(const Duration(days: 365)),
+                              );
+                              if (picked != null) {
+                                setStateDialog(() {
+                                  selectedDate = picked;
+                                });
+                              }
+                            },
+                            child: const Text('Selecionar'),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -459,6 +484,13 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
                     final justification =
                         'Esta é a resposta correta para este desafio.';
 
+                    if (selectedDate == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Selecione o prazo máximo.')),
+                      );
+                      return;
+                    }
+
                     ApiClient.createChallenge({
                       'titulo': 'Desafio Global',
                       'descricao': question,
@@ -468,6 +500,7 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
                       'opcoes': options,
                       'respostaCorreta': correctAnswer,
                       'paraTodasTutorandas': true,
+                      'prazoEntrega': selectedDate!.toIso8601String(),
                     }).then((_) {
                       _loadApiChallenges();
                     }).catchError((e) {
@@ -540,6 +573,7 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
       TextEditingController(),
     ];
     TutorResponseType selectedType = TutorResponseType.multipleChoice;
+    DateTime? selectedDate;
 
     showDialog(
       context: context,
@@ -647,6 +681,30 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
                           }),
                         ),
                       ],
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          const Text('Prazo Máximo: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                          Text(selectedDate == null ? 'Não definido' : '${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}'),
+                          const Spacer(),
+                          TextButton(
+                            onPressed: () async {
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: DateTime.now(),
+                                firstDate: DateTime.now(),
+                                lastDate: DateTime.now().add(const Duration(days: 365)),
+                              );
+                              if (picked != null) {
+                                setStateDialog(() {
+                                  selectedDate = picked;
+                                });
+                              }
+                            },
+                            child: const Text('Selecionar'),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -668,13 +726,25 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
                       return;
                     }
 
+                    if (selectedDate == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Selecione o prazo máximo.')),
+                      );
+                      return;
+                    }
+
                     String apiResponseType = 'TEXTO';
+                    final options = optionControllers
+                        .map((c) => c.text.trim())
+                        .where((t) => t.isNotEmpty)
+                        .toList();
+
                     if (selectedType == TutorResponseType.text) {
                       apiResponseType = 'TEXTO';
                     } else if (selectedType == TutorResponseType.file) {
                       apiResponseType = 'ARQUIVO';
                     } else if (selectedType == TutorResponseType.multipleChoice) {
-                      apiResponseType = 'TEXTO'; // Fallback for backend
+                      apiResponseType = 'MULTIPLA_ESCOLHA';
                     }
 
                     ApiClient.createChallenge({
@@ -683,7 +753,10 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
                       'nivelDificuldade': 'MEDIO',
                       'tipoResposta': apiResponseType,
                       'tags': '',
-                      'paraTodasTutorandas': true,
+                      'paraTodasTutorandas': false,
+                      'opcoes': apiResponseType == 'MULTIPLA_ESCOLHA' ? options : [],
+                      'respostaCorreta': apiResponseType == 'MULTIPLA_ESCOLHA' && options.isNotEmpty ? options.first : null,
+                      'prazoEntrega': selectedDate!.toIso8601String(),
                     }).then((_) {
                       _loadApiChallenges();
                     }).catchError((e) {
@@ -1011,6 +1084,17 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
               itemCount: globalChallenges.length,
               itemBuilder: (context, index) {
                 final challenge = globalChallenges[index];
+                
+                bool isExpired = false;
+                if (challenge['prazoEntrega'] != null) {
+                  try {
+                    final deadline = DateTime.parse(challenge['prazoEntrega']);
+                    if (DateTime.now().isAfter(deadline)) {
+                      isExpired = true;
+                    }
+                  } catch (_) {}
+                }
+
                 return Card(
                   elevation: 3,
                   shape: RoundedRectangleBorder(
@@ -1041,6 +1125,14 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
                               ),
                           ],
                         ),
+                        if (isExpired)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 4.0),
+                            child: Text(
+                              'Prazo encerrado',
+                              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                            ),
+                          ),
                         const SizedBox(height: 8),
                         Text(
                           challenge['descricao'] ?? '',
@@ -1054,16 +1146,16 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
                             title: Text(option.toString()),
                             activeColor: Colors.deepPurple,
                             contentPadding: EdgeInsets.zero,
-                            onChanged: (value) => _selectAnswer(index, value),
+                            onChanged: isExpired ? null : (value) => _selectAnswer(index, value),
                           );
-                        }),
+                        }).toList(),
                         const SizedBox(height: 12),
                         Align(
                           alignment: Alignment.centerRight,
                           child: ElevatedButton(
-                            onPressed: () => _submitResponse(index),
+                            onPressed: isExpired ? null : () => _submitResponse(index),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.deepPurple,
+                              backgroundColor: isExpired ? Colors.grey : Colors.deepPurple,
                             ),
                             child: const Text('Enviar resposta', style: TextStyle(color: Colors.white)),
                           ),
@@ -1092,7 +1184,7 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
     );
   }
 
-  Widget _buildTutorResponseWidget(int index) {
+  Widget _buildTutorResponseWidget(int index, bool isExpired) {
     final challenge = _apiChallenges[index];
     final responseType = challenge['tipoResposta'];
 
@@ -1101,6 +1193,7 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
         controller: _getTutorTextController(index),
         minLines: 3,
         maxLines: 6,
+        enabled: !isExpired,
         decoration: const InputDecoration(
           labelText: 'Sua resposta',
           border: OutlineInputBorder(),
@@ -1108,12 +1201,29 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
       );
     }
 
+    if (responseType == 'MULTIPLA_ESCOLHA') {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: (challenge['opcoes'] as List<dynamic>? ?? []).map((option) {
+          return RadioListTile<String>(
+            value: option.toString(),
+            groupValue: _selectedAnswers[index],
+            title: Text(option.toString()),
+            activeColor: Colors.deepPurple,
+            contentPadding: EdgeInsets.zero,
+            onChanged: isExpired ? null : (value) => _selectAnswer(index, value),
+          );
+        }).toList(),
+      );
+    }
+
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         ElevatedButton(
-          onPressed: () => _selectTutorFile(index),
-          style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple),
+          onPressed: isExpired ? null : () => _selectTutorFile(index),
+          style: ElevatedButton.styleFrom(backgroundColor: isExpired ? Colors.grey : Colors.deepPurple),
           child: const Text('Selecionar arquivo', style: TextStyle(color: Colors.white)),
         ),
         const SizedBox(height: 12),
@@ -1132,7 +1242,9 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
       return const Center(child: CircularProgressIndicator());
     }
 
-    final challenges = _apiChallenges;
+    // Filter to only show challenges that are NOT global (paraTodasTutorandas == false)
+    final challenges = _apiChallenges.where((c) => c['paraTodasTutorandas'] == false).toList();
+
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -1157,6 +1269,17 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
               itemCount: challenges.length,
               itemBuilder: (context, index) {
                 final challenge = challenges[index];
+                
+                bool isExpired = false;
+                if (challenge['prazoEntrega'] != null) {
+                  try {
+                    final deadline = DateTime.parse(challenge['prazoEntrega']);
+                    if (DateTime.now().isAfter(deadline)) {
+                      isExpired = true;
+                    }
+                  } catch (_) {}
+                }
+
                 return Card(
                   elevation: 3,
                   shape: RoundedRectangleBorder(
@@ -1181,20 +1304,28 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
                             ),
                           ],
                         ),
+                        if (isExpired)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 4.0),
+                            child: Text(
+                              'Prazo encerrado',
+                              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                            ),
+                          ),
                         const SizedBox(height: 8),
                         Text(
                           challenge['descricao'] ?? '',
                           style: const TextStyle(fontSize: 15),
                         ),
                         const SizedBox(height: 12),
-                        _buildTutorResponseWidget(index),
+                        _buildTutorResponseWidget(index, isExpired),
                         const SizedBox(height: 12),
                         Align(
                           alignment: Alignment.centerRight,
                           child: ElevatedButton(
-                            onPressed: () => _submitTutorResponse(index),
+                            onPressed: isExpired ? null : () => _submitTutorResponse(index),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.deepPurple,
+                              backgroundColor: isExpired ? Colors.grey : Colors.deepPurple,
                             ),
                             child: const Text('Enviar resposta', style: TextStyle(color: Colors.white)),
                           ),
