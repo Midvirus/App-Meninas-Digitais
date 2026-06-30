@@ -86,6 +86,11 @@ public class DesafioService {
         return desafioRepository.findByTutoraIdAndAtivo(tutoraId, true);
     }
 
+    // Listar todos os desafios globais (para admin)
+    public List<Desafio> listarDesafiosGlobais() {
+        return desafioRepository.findByParaTodasTutorandasTrueAndAtivo(true);
+    }
+
     // RF08 - dar feedback e validar resposta
     public Resposta feedbackResposta(Long respostaId, FeedbackRespostaRequest req) {
         Resposta resposta = respostaRepository.findById(respostaId)

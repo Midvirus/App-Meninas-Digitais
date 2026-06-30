@@ -6,8 +6,8 @@ import 'global_state.dart';
 /// Replaces the old Supabase client with REST API calls.
 class ApiClient {
   static const String baseUrl = 'https://app-meninas-digitais-1.onrender.com';
-
-  /// Standard headers including JWT auth token when available.
+ 
+ /// Standard headers including JWT auth token when available.
   static Map<String, String> getAuthHeaders() {
     final headers = <String, String>{
       'Content-Type': 'application/json',
@@ -249,15 +249,19 @@ class ApiClient {
   /// List challenges for tutora via GET /api/tutora/desafios
   static Future<List<dynamic>> listChallengesForTutora() async {
     final data = await get('/api/tutora/desafios');
-    return data as List<dynamic>? ?? [];
+    return data is List ? data : [];
   }
 
-  // ─── Challenges (Tutoranda) ───────────────────────────────────────────
+  /// List challenges for admin via GET /api/admin/desafios
+  static Future<List<dynamic>> listChallengesForAdmin() async {
+    final data = await get('/api/admin/desafios');
+    return data is List ? data : [];
+  }
 
   /// List challenges for tutoranda via GET /api/tutoranda/desafios
   static Future<List<dynamic>> listChallengesForTutoranda() async {
     final data = await get('/api/tutoranda/desafios');
-    return data as List<dynamic>;
+    return data is List ? data : [];
   }
 
   // ─── Desafios Tutoranda ───────────────────────────────────────────────

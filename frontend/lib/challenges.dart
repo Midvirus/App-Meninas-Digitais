@@ -71,6 +71,8 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
         }
       } else if (GlobalState.userRole == 'Tutor' || GlobalState.userRole == 'Tutora') {
         data = await ApiClient.listChallengesForTutora();
+      } else if (GlobalState.userRole?.toLowerCase() == 'admin' || GlobalState.userRole == 'Admin') {
+        data = await ApiClient.listChallengesForAdmin();
       }
       
       if (mounted) {
@@ -420,9 +422,14 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
                       const SizedBox(height: 16),
                       Row(
                         children: [
-                          const Text('Prazo Máximo: ', style: TextStyle(fontWeight: FontWeight.bold)),
-                          Text(selectedDate == null ? 'Não definido' : '${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}'),
-                          const Spacer(),
+                          Expanded(
+                            child: Wrap(
+                              children: [
+                                const Text('Prazo Máximo: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                                Text(selectedDate == null ? 'Não definido' : '${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}'),
+                              ],
+                            ),
+                          ),
                           TextButton(
                             onPressed: () async {
                               final picked = await showDatePicker(
@@ -691,9 +698,14 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
                       const SizedBox(height: 16),
                       Row(
                         children: [
-                          const Text('Prazo Máximo: ', style: TextStyle(fontWeight: FontWeight.bold)),
-                          Text(selectedDate == null ? 'Não definido' : '${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}'),
-                          const Spacer(),
+                          Expanded(
+                            child: Wrap(
+                              children: [
+                                const Text('Prazo Máximo: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                                Text(selectedDate == null ? 'Não definido' : '${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}'),
+                              ],
+                            ),
+                          ),
                           TextButton(
                             onPressed: () async {
                               final picked = await showDatePicker(
@@ -1124,7 +1136,7 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
                                 color: Colors.deepPurple,
                               ),
                             ),
-                            if (GlobalState.userRole != 'Tutoranda')
+                            if (GlobalState.userRole?.toLowerCase() == 'admin' || GlobalState.userRole == 'Admin')
                               IconButton(
                                 icon: const Icon(Icons.delete, color: Colors.redAccent),
                                 tooltip: 'Remover desafio',

@@ -5,6 +5,7 @@ import com.meninasdigitais.dto.request.ObservacaoRequest;
 import com.meninasdigitais.entity.ObservacaoPrivada;
 import com.meninasdigitais.entity.PostCuriosidade;
 import com.meninasdigitais.entity.Usuario;
+import com.meninasdigitais.entity.Desafio;
 import com.meninasdigitais.enums.PostCategory;
 import com.meninasdigitais.service.DesafioService;
 import com.meninasdigitais.service.AdminService;
@@ -115,6 +116,12 @@ class AdminController {
     @GetMapping("/indicadores")
     public ResponseEntity<Map<String, Object>> indicadores() {
         return ResponseEntity.ok(adminService.indicadores());
+    }
+
+    // Listar todos os desafios globais para o Admin
+    @GetMapping("/desafios")
+    public ResponseEntity<List<Desafio>> listarDesafiosGlobais() {
+        return ResponseEntity.ok(desafioService.listarDesafiosGlobais());
     }
 
     // RF18 - remover desafio
