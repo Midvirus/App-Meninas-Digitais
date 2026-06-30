@@ -65,9 +65,11 @@ public class Desafio {
     // RF05 - se false, o desafio é direcionado a tutorandas específicas (ver
     // DesafioTutoranda)
     @Column(name = "para_todas", nullable = false)
+    @Builder.Default
     private boolean paraTodasTutorandas = true;
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean ativo = true;
 
     @ManyToOne

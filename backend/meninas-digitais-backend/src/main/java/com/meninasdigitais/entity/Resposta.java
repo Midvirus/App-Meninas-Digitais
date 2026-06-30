@@ -85,7 +85,9 @@ public class Resposta {
     protected void onCreate() {
         enviadoEm = LocalDateTime.now();
         atualizadoEm = LocalDateTime.now();
-        status = ChallengeStatus.ENVIADO;
+        if (status == null) {
+            status = ChallengeStatus.ENVIADO;
+        }
     }
 
     @PreUpdate

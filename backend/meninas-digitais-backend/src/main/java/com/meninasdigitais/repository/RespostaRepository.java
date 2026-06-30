@@ -29,7 +29,7 @@ public interface RespostaRepository extends JpaRepository<Resposta, Long> {
     long countByDesafioIdAndStatus(Long desafioId, ChallengeStatus status);
 
     // RF17 - taxa de respostas
-    @Query("SELECT COUNT(r) FROM Resposta r WHERE r.status <> 'PENDENTE'")
+    @Query("SELECT COUNT(r) FROM Resposta r WHERE r.status <> com.meninasdigitais.enums.ChallengeStatus.PENDENTE")
     long countRespostasEnviadas();
 
     // Respostas por tutoranda filtradas por status

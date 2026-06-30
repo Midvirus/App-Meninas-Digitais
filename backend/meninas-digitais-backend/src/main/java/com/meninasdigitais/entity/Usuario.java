@@ -52,6 +52,7 @@ public class Usuario implements UserDetails {
     private Role role;
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean ativo = true;
 
     @Column(name = "criado_em", updatable = false)
