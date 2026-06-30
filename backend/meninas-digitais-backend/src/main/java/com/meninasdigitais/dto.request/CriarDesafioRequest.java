@@ -1,5 +1,6 @@
 package com.meninasdigitais.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.meninasdigitais.enums.DifficultyLevel;
 import com.meninasdigitais.enums.ResponseType;
 import jakarta.validation.constraints.NotBlank;
@@ -15,6 +16,7 @@ public class CriarDesafioRequest {
     @NotBlank private String titulo;
     @NotBlank private String descricao;
     @NotNull  private DifficultyLevel nivelDificuldade;
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime prazoEntrega;
     @NotNull  private ResponseType tipoResposta;
     private String tags;

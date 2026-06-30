@@ -500,7 +500,7 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
                       'opcoes': options,
                       'respostaCorreta': correctAnswer,
                       'paraTodasTutorandas': true,
-                      'prazoEntrega': selectedDate!.toIso8601String(),
+                      'prazoEntrega': '${selectedDate!.year.toString().padLeft(4, '0')}-${selectedDate!.month.toString().padLeft(2, '0')}-${selectedDate!.day.toString().padLeft(2, '0')}T23:59:59',
                     }).then((_) {
                       _loadApiChallenges();
                     }).catchError((e) {
@@ -756,7 +756,7 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
                       'paraTodasTutorandas': false,
                       'opcoes': apiResponseType == 'MULTIPLA_ESCOLHA' ? options : [],
                       'respostaCorreta': apiResponseType == 'MULTIPLA_ESCOLHA' && options.isNotEmpty ? options.first : null,
-                      'prazoEntrega': selectedDate!.toIso8601String(),
+                      'prazoEntrega': '${selectedDate!.year.toString().padLeft(4, '0')}-${selectedDate!.month.toString().padLeft(2, '0')}-${selectedDate!.day.toString().padLeft(2, '0')}T23:59:59',
                     }).then((_) {
                       _loadApiChallenges();
                     }).catchError((e) {
