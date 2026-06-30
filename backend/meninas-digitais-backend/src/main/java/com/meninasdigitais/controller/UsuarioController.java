@@ -109,3 +109,20 @@ class PerfilController {
         return ResponseEntity.ok(usuario);
     }
 }
+
+//Usuários (Tutora)
+
+@RestController
+@RequestMapping("/api/tutora/tutorandas")
+@RequiredArgsConstructor
+@PreAuthorize("hasRole('TUTORA')")
+class TutoraUsuarioController {
+
+    private final UsuarioService usuarioService;
+
+    // RF03 - listar tutorandas da tutora autenticada
+    @GetMapping
+    public ResponseEntity<List<Usuario>> listarMinhasTutorandas(@AuthenticationPrincipal Usuario tutora) {
+        return ResponseEntity.ok(usuarioService.listarTutorandas(tutora.getId()));
+    }
+}

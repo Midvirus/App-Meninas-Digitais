@@ -177,7 +177,7 @@ class _PinboardPageState extends State<PinboardPage> {
   void _addPin() {
     showDialog(
       context: context,
-      builder: (context) => _AddPinDialog(
+      builder: (dialogContext) => _AddPinDialog(
         onAdd: (title, description, user, category, date, color, tutor) async {
           try {
             // Map category to match backend Enum where possible

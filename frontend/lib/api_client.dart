@@ -178,6 +178,12 @@ class ApiClient {
     return data as List<dynamic>;
   }
 
+  /// List tutorandas via GET /api/tutora/tutorandas
+  static Future<List<dynamic>> listTutorandas() async {
+    final data = await get('/api/tutora/tutorandas');
+    return data as List<dynamic>;
+  }
+
   /// Create user via POST /api/admin/usuarios
   static Future<Map<String, dynamic>> createUser(
     Map<String, dynamic> userData,

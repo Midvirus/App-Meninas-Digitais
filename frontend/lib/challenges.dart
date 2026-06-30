@@ -1240,16 +1240,14 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
   }
 
   Widget? _getFloatingActionButton() {
-    if (_selectedTabIndex == 0) {
-      if (GlobalState.userRole != 'Tutoranda') {
+    if (GlobalState.userRole == 'Tutor' || GlobalState.userRole == 'Tutora') {
+      if (_selectedTabIndex == 0) {
         return FloatingActionButton(
           onPressed: _showAddChallengeDialog,
           child: const Icon(Icons.add),
-          tooltip: 'Adicionar novo desafio',
+          tooltip: 'Adicionar novo desafio global',
         );
-      }
-    } else if (_selectedTabIndex == 1) {
-      if (GlobalState.userRole == 'Tutor') {
+      } else if (_selectedTabIndex == 1) {
         return FloatingActionButton(
           onPressed: _showAddTutorChallengeDialog,
           child: const Icon(Icons.add),

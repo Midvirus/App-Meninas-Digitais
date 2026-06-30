@@ -136,17 +136,14 @@ class _UsersPageState extends State<UsersPage> {
     });
 
     try {
-      final rawUsers = await ApiClient.listUsers();
+      final rawUsers = GlobalState.userRole == 'Tutor'
+          ? await ApiClient.listTutorandas()
+          : await ApiClient.listUsers();
       if (!mounted) return;
 
       List<UserProfile> allUsers = rawUsers
           .map((item) => UserProfile.fromJson(item as Map<String, dynamic>))
           .toList();
-
-      // If user is Tutor, filter to show only their tutorandas
-      if (GlobalState.userRole == 'Tutor') {
-        allUsers = allUsers.where((u) => u.tutor == GlobalState.userName).toList();
-      }
 
       // Sort by created date descending
       allUsers.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -362,7 +359,9 @@ class _UsersPageState extends State<UsersPage> {
                         ? Center(
                             child: Text(
                               users.isEmpty
-                                  ? 'Nenhum usuário cadastrado.'
+                                  ? (GlobalState.userRole == 'Tutor' 
+                                      ? 'Não há tutorandos associados.' 
+                                      : 'Nenhum usuário cadastrado.')
                                   : 'Nenhum usuário encontrado.',
                               style: const TextStyle(
                                   fontSize: 16, color: Colors.grey),
