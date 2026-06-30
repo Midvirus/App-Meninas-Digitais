@@ -462,7 +462,7 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
                     ApiClient.createChallenge({
                       'titulo': 'Desafio Global',
                       'descricao': question,
-                      'nivelDificuldade': 'MEDIA',
+                      'nivelDificuldade': 'MEDIO',
                       'tipoResposta': 'MULTIPLA_ESCOLHA',
                       'tags': '',
                       'opcoes': options,
@@ -680,7 +680,7 @@ class _ChallengesPageState extends State<ChallengesPage> with SingleTickerProvid
                     ApiClient.createChallenge({
                       'titulo': 'Desafio',
                       'descricao': question,
-                      'nivelDificuldade': 'MEDIA',
+                      'nivelDificuldade': 'MEDIO',
                       'tipoResposta': apiResponseType,
                       'tags': '',
                       'paraTodasTutorandas': true,
