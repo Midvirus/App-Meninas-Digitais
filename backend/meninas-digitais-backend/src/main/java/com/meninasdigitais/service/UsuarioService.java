@@ -86,7 +86,7 @@ public class UsuarioService {
             u.setQuantidadeTutorandas(usuarioRepository.findByTutoraId(u.getId()).size());
         } else if (u.getRole() == Role.TUTORANDA) {
             int respostas = respostaRepository.findByTutorandaId(u.getId()).size();
-            int acertos = respostaRepository.findByTutorandaIdAndStatus(u.getId(), com.meninasdigitais.enums.ChallengeStatus.APROVADO).size();
+            int acertos = respostaRepository.findByTutorandaIdAndStatus(u.getId(), com.meninasdigitais.enums.ChallengeStatus.VALIDADO).size();
             u.setDesafiosFeitos(respostas);
             u.setRespostasCorretas(acertos);
 
