@@ -80,13 +80,14 @@ class PostController {
 @RestController
 @RequestMapping("/api/tutora/observacoes")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('TUTORA')")
+@PreAuthorize("hasAnyRole('TUTORA', 'ADMIN')")
 class ObservacaoController {
 
     private final ObservacaoService observacaoService;
 
     // RF10 - registrar observação
     @PostMapping("/{tutorandaId}")
+    @PreAuthorize("hasRole('TUTORA')")
     public ResponseEntity<ObservacaoPrivada> registrar(@PathVariable Long tutorandaId,
                                                        @Valid @RequestBody ObservacaoRequest req,
                                                        @AuthenticationPrincipal Usuario tutora) {
@@ -96,8 +97,8 @@ class ObservacaoController {
     // RF10 - listar observações de uma tutoranda
     @GetMapping("/{tutorandaId}")
     public ResponseEntity<List<ObservacaoPrivada>> listar(@PathVariable Long tutorandaId,
-                                                          @AuthenticationPrincipal Usuario tutora) {
-        return ResponseEntity.ok(observacaoService.listar(tutora.getId(), tutorandaId));
+                                                          @AuthenticationPrincipal Usuario requisitante) {
+        return ResponseEntity.ok(observacaoService.listar(requisitante, tutorandaId));
     }
 }
 

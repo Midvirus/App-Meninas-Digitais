@@ -297,8 +297,11 @@ class _UsersPageState extends State<UsersPage> {
   }
 
   Future<void> _showUserDetails(UserProfile user) async {
-    // Fetch existing observations for Tutoranda if the current user is a Tutor
-    if (GlobalState.userRole == 'Tutor' && user.role == 'Tutoranda') {
+    final isAdmin = GlobalState.userRole?.toLowerCase() == 'admin' || GlobalState.userRole == 'Admin';
+    final isTutor = GlobalState.userRole == 'Tutor';
+
+    // Fetch existing observations for Tutoranda if the current user is a Tutor or Admin
+    if ((isTutor || isAdmin) && user.role == 'Tutoranda') {
       try {
         final observacoes = await ApiClient.listarObservacoes(user.id);
         if (observacoes.isNotEmpty) {
@@ -602,19 +605,18 @@ class _UserDetailsDialogState extends State<_UserDetailsDialog> {
                 ),
                 const SizedBox(height: 12),
               ],
-              const Text('Nova Observação:', style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              TextField(
-                controller: obsController,
-                maxLines: 4,
-                readOnly: !isTutor,
-                decoration: InputDecoration(
-                  border: const OutlineInputBorder(),
-                  hintText: isTutor ? 'Adicione uma nova observação...' : 'Nenhuma nova observação',
-                  fillColor: !isTutor ? Colors.grey[100] : null,
-                  filled: !isTutor,
+              if (isTutor) ...[
+                const Text('Nova Observação:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: obsController,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: 'Adicione uma nova observação...',
+                  ),
                 ),
-              ),
+              ],
             ] else if (user.role == 'Tutor' && isAdmin) ...[
               const SizedBox(height: 8),
               _infoRow('Posts Feitos', '${user.postsFeitos}'),

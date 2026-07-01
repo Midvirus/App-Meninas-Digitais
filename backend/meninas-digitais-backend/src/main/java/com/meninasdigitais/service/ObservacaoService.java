@@ -30,7 +30,10 @@ public class ObservacaoService {
     }
 
     // RF10 - listar observações de uma tutoranda (tutora ou admin)
-    public List<ObservacaoPrivada> listar(Long tutoraId, Long tutorandaId) {
-        return observacaoRepository.findByTutoraIdAndTutorandaId(tutoraId, tutorandaId);
+    public List<ObservacaoPrivada> listar(Usuario requisitante, Long tutorandaId) {
+        if (requisitante.getRole() == com.meninasdigitais.enums.Role.ADMIN) {
+            return observacaoRepository.findByTutorandaId(tutorandaId);
+        }
+        return observacaoRepository.findByTutoraIdAndTutorandaId(requisitante.getId(), tutorandaId);
     }
 }

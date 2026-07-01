@@ -49,6 +49,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**", "/swagger-ui/**", "/api-docs/**", "/error").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/mural/**", "/api/posts/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/tutora/observacoes/**").hasAnyRole("TUTORA", "ADMIN")
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/tutora/**").hasRole("TUTORA")
                         .requestMatchers("/api/tutoranda/**").hasRole("TUTORANDA")
