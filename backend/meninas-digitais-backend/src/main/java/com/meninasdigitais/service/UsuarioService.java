@@ -4,6 +4,9 @@ import com.meninasdigitais.dto.request.CadastroUsuarioRequest;
 import com.meninasdigitais.dto.request.LoginRequest;
 import com.meninasdigitais.entity.Usuario;
 import com.meninasdigitais.enums.Role;
+import com.meninasdigitais.repository.DesafioRepository;
+import com.meninasdigitais.repository.PostCuriosidadeRepository;
+import com.meninasdigitais.repository.RespostaRepository;
 import com.meninasdigitais.repository.UsuarioRepository;
 import com.meninasdigitais.security.JwtService;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +24,9 @@ import java.util.Map;
 public class UsuarioService {
 
     private final UsuarioRepository usuarioRepository;
+    private final PostCuriosidadeRepository postCuriosidadeRepository;
+    private final DesafioRepository desafioRepository;
+    private final RespostaRepository respostaRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authManager;
@@ -59,12 +65,42 @@ public class UsuarioService {
 
     // RF03 - tutorandas da tutora
     public List<Usuario> listarTutorandas(Long tutoraId) {
-        return usuarioRepository.findByTutoraId(tutoraId);
+        return usuarioRepository.findByTutoraId(tutoraId).stream()
+                .filter(Usuario::isAtivo)
+                .map(this::populateStats)
+                .toList();
     }
 
     // RF19 - gerenciar usuários (admin)
     public List<Usuario> listarTodos() {
-        return usuarioRepository.findAll();
+        return usuarioRepository.findAll().stream()
+                .filter(Usuario::isAtivo)
+                .map(this::populateStats)
+                .toList();
+    }
+
+    private Usuario populateStats(Usuario u) {
+        if (u.getRole() == Role.TUTORA) {
+            u.setPostsFeitos(postCuriosidadeRepository.findByTutoraId(u.getId()).size());
+            u.setDesafiosCriados(desafioRepository.findByTutoraIdAndAtivo(u.getId(), true).size());
+            u.setQuantidadeTutorandas(usuarioRepository.findByTutoraId(u.getId()).size());
+        } else if (u.getRole() == Role.TUTORANDA) {
+            int respostas = respostaRepository.findByTutorandaId(u.getId()).size();
+            int acertos = respostaRepository.findByTutorandaIdAndStatus(u.getId(), com.meninasdigitais.enums.ChallengeStatus.APROVADO).size();
+            u.setDesafiosFeitos(respostas);
+            u.setRespostasCorretas(acertos);
+
+            // Taxa conclusão
+            int globais = desafioRepository.findByParaTodasTutorandasTrueAndAtivo(true).size();
+            int especificos = desafioRepository.findDesafiosEspecificosByTutorandaId(u.getId()).size();
+            int total = globais + especificos;
+            if (total > 0) {
+                u.setTaxaConclusao((double) respostas / total);
+            } else {
+                u.setTaxaConclusao(0.0);
+            }
+        }
+        return u;
     }
 
     public Usuario buscarPorId(Long id) {

@@ -13,13 +13,13 @@ class UserProfile {
   final String? observacoes;
   final DateTime createdAt;
 
-  // Mock stats
-  int get mockPosts => 12;
-  int get mockDesafiosCriados => 5;
-  int get mockTutorandas => 3;
-  double get mockConclusao => 0.75;
-  int get mockDesafiosFeitos => 15;
-  int get mockAcertos => 12;
+  // Dynamic stats
+  final int postsFeitos;
+  final int desafiosCriados;
+  final int quantidadeTutorandas;
+  final double taxaConclusao;
+  final int desafiosFeitos;
+  final int respostasCorretas;
 
   UserProfile({
     required this.id,
@@ -30,6 +30,12 @@ class UserProfile {
     this.tutor,
     this.observacoes,
     required this.createdAt,
+    this.postsFeitos = 0,
+    this.desafiosCriados = 0,
+    this.quantidadeTutorandas = 0,
+    this.taxaConclusao = 0.0,
+    this.desafiosFeitos = 0,
+    this.respostasCorretas = 0,
   });
 
   UserProfile copyWith({
@@ -51,6 +57,12 @@ class UserProfile {
       tutor: tutor ?? this.tutor,
       observacoes: observacoes ?? this.observacoes,
       createdAt: createdAt ?? this.createdAt,
+      postsFeitos: this.postsFeitos,
+      desafiosCriados: this.desafiosCriados,
+      quantidadeTutorandas: this.quantidadeTutorandas,
+      taxaConclusao: this.taxaConclusao,
+      desafiosFeitos: this.desafiosFeitos,
+      respostasCorretas: this.respostasCorretas,
     );
   }
 
@@ -78,6 +90,12 @@ class UserProfile {
       createdAt: json['criadoEm'] != null
           ? DateTime.parse(json['criadoEm'] as String)
           : DateTime.now(),
+      postsFeitos: json['postsFeitos'] as int? ?? 0,
+      desafiosCriados: json['desafiosCriados'] as int? ?? 0,
+      quantidadeTutorandas: json['quantidadeTutorandas'] as int? ?? 0,
+      taxaConclusao: (json['taxaConclusao'] as num?)?.toDouble() ?? 0.0,
+      desafiosFeitos: json['desafiosFeitos'] as int? ?? 0,
+      respostasCorretas: json['respostasCorretas'] as int? ?? 0,
     );
   }
 
@@ -169,7 +187,17 @@ class _UsersPageState extends State<UsersPage> {
 
   Future<void> _saveUser(UserProfile user) async {
     try {
-      await ApiClient.createUser(user.toBackendJson());
+      final response = await ApiClient.createUser(user.toBackendJson());
+      
+      // Se for tutoranda e tiver tutor selecionado, vincula imediatamente
+      if (user.role == 'Tutoranda' && user.tutor != null) {
+        final newUserId = response['id'];
+        final tutorUser = users.where((u) => u.name == user.tutor && u.role == 'Tutor').firstOrNull;
+        if (newUserId != null && tutorUser != null) {
+          await ApiClient.bindTutoranda(newUserId, tutorUser.id);
+        }
+      }
+
       await _loadUsers();
     } on ApiException catch (error) {
       if (!mounted) return;
@@ -207,6 +235,18 @@ class _UsersPageState extends State<UsersPage> {
 
   Future<void> _updateUser(UserProfile user) async {
     try {
+      if (GlobalState.userRole == 'Tutor') {
+        if (user.observacoes != null && user.observacoes!.isNotEmpty) {
+          await ApiClient.registrarObservacao(user.id, user.observacoes!);
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Observação salva com sucesso!')),
+          );
+        }
+        await _loadUsers();
+        return;
+      }
+
       // For role changes, use the specific role endpoint
       final backendRole = ApiClient.mapRoleToBackend(user.role);
       await ApiClient.changeUserRole(user.id, backendRole);
@@ -256,12 +296,30 @@ class _UsersPageState extends State<UsersPage> {
     );
   }
 
-  void _showUserDetails(int index) {
+  Future<void> _showUserDetails(UserProfile user) async {
+    // Fetch existing observations for Tutoranda if the current user is a Tutor
+    if (GlobalState.userRole == 'Tutor' && user.role == 'Tutoranda') {
+      try {
+        final observacoes = await ApiClient.listarObservacoes(user.id);
+        if (observacoes.isNotEmpty) {
+          final observacoesText = observacoes
+              .map((obs) => obs['conteudo'] as String?)
+              .where((c) => c != null && c.isNotEmpty)
+              .join('\n\n---\n\n');
+          user = user.copyWith(observacoes: observacoesText);
+        }
+      } catch (e) {
+        print('Erro ao carregar observações: $e');
+      }
+    }
+
+    if (!mounted) return;
+
     final tutorsList = users.where((u) => u.role == 'Tutor').toList();
     showDialog(
       context: context,
       builder: (context) => _UserDetailsDialog(
-        user: users[index],
+        user: user,
         tutors: tutorsList,
         onUpdate: (updatedUser) async {
           await _updateUser(updatedUser);
@@ -381,7 +439,7 @@ class _UsersPageState extends State<UsersPage> {
                                 elevation: 2,
                                 child: InkWell(
                                   borderRadius: BorderRadius.circular(12),
-                                  onTap: () => _showUserDetails(index),
+                                  onTap: () => _showUserDetails(user),
                                   child: Stack(
                                     children: [
                                       Padding(
@@ -408,9 +466,9 @@ class _UsersPageState extends State<UsersPage> {
                                                       child: Column(
                                                         crossAxisAlignment: CrossAxisAlignment.start,
                                                         children: [
-                                                          Text('Posts: ${user.mockPosts}', style: const TextStyle(fontSize: 12)),
-                                                          Text('Desafios: ${user.mockDesafiosCriados}', style: const TextStyle(fontSize: 12)),
-                                                          Text('Tutorandas: ${user.mockTutorandas}', style: const TextStyle(fontSize: 12)),
+                                                          Text('Posts: ${user.postsFeitos}', style: const TextStyle(fontSize: 12)),
+                                                          Text('Desafios: ${user.desafiosCriados}', style: const TextStyle(fontSize: 12)),
+                                                          Text('Tutorandas: ${user.quantidadeTutorandas}', style: const TextStyle(fontSize: 12)),
                                                         ],
                                                       ),
                                                     ),
@@ -421,7 +479,7 @@ class _UsersPageState extends State<UsersPage> {
                                                         crossAxisAlignment: CrossAxisAlignment.start,
                                                         children: [
                                                           Text('Tutor: ${user.tutor ?? 'Não atribuído'}', style: const TextStyle(fontSize: 12)),
-                                                          Text('Concluído: ${(user.mockConclusao * 100).toStringAsFixed(0)}%', style: const TextStyle(fontSize: 12)),
+                                                          Text('Concluído: ${(user.taxaConclusao * 100).toStringAsFixed(0)}%', style: const TextStyle(fontSize: 12)),
                                                         ],
                                                       ),
                                                     ),
@@ -498,7 +556,7 @@ class _UserDetailsDialogState extends State<_UserDetailsDialog> {
   @override
   void initState() {
     super.initState();
-    obsController = TextEditingController(text: widget.user.observacoes ?? '');
+    obsController = TextEditingController();
   }
 
   @override
@@ -526,11 +584,25 @@ class _UserDetailsDialogState extends State<_UserDetailsDialog> {
             if (user.role == 'Tutoranda') ...[
               const SizedBox(height: 8),
               _infoRow('Tutor', user.tutor ?? 'Não atribuído'),
-              _infoRow('Desafios Feitos', '${user.mockDesafiosFeitos}'),
-              _infoRow('Desafios Publicados', '${user.mockDesafiosCriados}'),
-              _infoRow('Respostas Corretas', '${user.mockAcertos}'),
+              _infoRow('Desafios Feitos', '${user.desafiosFeitos}'),
+              _infoRow('Respostas Corretas', '${user.respostasCorretas}'),
               const SizedBox(height: 16),
-              const Text('Observações:', style: TextStyle(fontWeight: FontWeight.bold)),
+              if (user.observacoes != null && user.observacoes!.isNotEmpty) ...[
+                const Text('Histórico de Observações:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    border: Border.all(color: Colors.grey[300]!),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(user.observacoes!),
+                ),
+                const SizedBox(height: 12),
+              ],
+              const Text('Nova Observação:', style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               TextField(
                 controller: obsController,
@@ -538,16 +610,16 @@ class _UserDetailsDialogState extends State<_UserDetailsDialog> {
                 readOnly: !isTutor,
                 decoration: InputDecoration(
                   border: const OutlineInputBorder(),
-                  hintText: 'Nenhuma observação',
+                  hintText: isTutor ? 'Adicione uma nova observação...' : 'Nenhuma nova observação',
                   fillColor: !isTutor ? Colors.grey[100] : null,
                   filled: !isTutor,
                 ),
               ),
             ] else if (user.role == 'Tutor' && isAdmin) ...[
               const SizedBox(height: 8),
-              _infoRow('Posts Feitos', '${user.mockPosts}'),
-              _infoRow('Desafios Criados', '${user.mockDesafiosCriados}'),
-              _infoRow('Tutorandas', '${user.mockTutorandas}'),
+              _infoRow('Posts Feitos', '${user.postsFeitos}'),
+              _infoRow('Desafios Criados', '${user.desafiosCriados}'),
+              _infoRow('Tutorandas', '${user.quantidadeTutorandas}'),
             ],
           ],
         ),

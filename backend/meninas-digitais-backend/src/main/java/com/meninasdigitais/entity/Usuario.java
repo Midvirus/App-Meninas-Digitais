@@ -74,6 +74,24 @@ public class Usuario implements UserDetails {
     @JsonIgnoreProperties({"senha", "authorities", "tutora"})
     private Usuario tutora;
 
+    @Transient
+    private Integer postsFeitos;
+
+    @Transient
+    private Integer desafiosCriados;
+
+    @Transient
+    private Integer quantidadeTutorandas;
+
+    @Transient
+    private Integer desafiosFeitos;
+
+    @Transient
+    private Integer respostasCorretas;
+
+    @Transient
+    private Double taxaConclusao;
+
     @PrePersist
     protected void onCreate() {
         criadoEm = LocalDateTime.now();
