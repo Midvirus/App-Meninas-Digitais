@@ -12,13 +12,13 @@ O projeto reúne um aplicativo multiplataforma em Flutter e uma API REST robusta
 https://midvirus.github.io/App-Meninas-Digitais/
 
 ### 🔑 Acesso para Teste
-**ADMIN**
+- **ADMIN**
 - **E-mail:** `admin@gmail.com`
 - **Senha:** `12345`
-**TUTOR**
+- **TUTOR**
 - **E-mail:** `teste@gmail.com`
 - **Senha:** `12345`
-**TUTORANDA**
+- **TUTORANDA**
 - **E-mail:** `aluna@gmail.com`
 - **Senha:** `12345`
 
